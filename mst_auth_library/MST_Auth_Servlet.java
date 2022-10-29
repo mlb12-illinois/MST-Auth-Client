@@ -1,6 +1,7 @@
 package mst_auth_library;
 
 import mst_auth_client.MST_Auth_Client;
+import software.aws.mcs.auth.SigV4AuthProvider;
 
 import java.io.BufferedReader;
 //import java.io.BufferedWriter;
@@ -49,6 +50,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.datastax.driver.core.Cluster;
+
 import java.io.IOException;
 
 import javax.crypto.BadPaddingException;
@@ -65,6 +68,24 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
+import com.datastax.driver.core.SimpleStatement;
+import com.datastax.driver.core.Statement;
+
+// cassandra stuff
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
+import com.datastax.driver.core.SimpleStatement;
+import com.datastax.driver.core.Statement;
+import software.aws.mcs.auth.SigV4AuthProvider;
+
 
 /**
  * mst_auth_servlet is the client side library for the MST-Auth platform
@@ -111,10 +132,23 @@ public class MST_Auth_Servlet extends HttpServlet {
 	private LinkedHashMap<String, PublicKey> graphname_to_public;
 	
 	// variables used while processing rest calls
+	private JSONObject jsonheader;
 	private String InboundMethod;
 	private String OutboundMethod;
 	private String OutboundBody;
-	private String GraphName;
+	
+	private String sending_servicename;	
+	private UUID sending_instanceid;
+	private UUID sending_serviceid;
+	private UUID receiving_instanceid;
+	private UUID receiving_serviceid;
+
+	private int NewMessageChain;
+	private UUID root_msgid;
+	private UUID parent_msgid;
+	private UUID msgid;
+	
+	private Timestamp create_timestamp;
 	
 	private MST_Auth_Client MST_Client;
 	private HttpRequest.Builder mstauthbuilder;
@@ -122,6 +156,16 @@ public class MST_Auth_Servlet extends HttpServlet {
 	public JSONObject inputjson;
 	
 	private static final long serialVersionUID = 1L;
+	
+	////////////////////////////////////////////////
+	// temp cassandra stuff
+	public static Cluster CASSANDRA_CLUSTER;
+	private Session CASSANDRA_SESSION;
+    private static String CASSANDRA_URL = "127.0.0.1";
+	private static Integer CASSANDRA_PORT = 9042;
+	private static String CASSANDRA_AUTH = "";
+	private static String CASSANDRA_USER = ""; 
+	private static String CASSANDRA_PASSWORD = ""; 
        
     /**
      * @see HttpServlet#HttpServlet()
@@ -159,7 +203,6 @@ public class MST_Auth_Servlet extends HttpServlet {
 		//
 		// initialize some variables
 		//
-		GraphName = "";
 		InboundMethod = "";
 		OutboundMethod = "";
 		OutboundBody = "";
@@ -423,6 +466,50 @@ public class MST_Auth_Servlet extends HttpServlet {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}	
+		
+		/////////////////////////////////////////
+		// temp cassandra stuff
+		CassandraCreate();
+	}
+
+	public void destroy() {
+		CASSANDRA_CLUSTER.close();	// not sure this does anything		
+	}
+
+	private void CassandraCreate() throws ServletException {
+		/////////////////////////////////////////
+		// temp cassandra stuff
+		int tries = 3;
+		while (tries > 0)
+		{
+			try {
+				CASSANDRA_CLUSTER = Cluster.builder()
+						.addContactPoint(CASSANDRA_URL)
+						.withPort(CASSANDRA_PORT)
+//						.withAuthProvider(new SigV4AuthProvider(CASSANDRA_AUTH))
+//		                .withSSL()
+//						.withCredentials(CASSANDRA_USER, CASSANDRA_PASSWORD)
+						.build();
+
+				CASSANDRA_SESSION = CASSANDRA_CLUSTER.connect();
+				CASSANDRA_SESSION.execute("USE mstauth");
+				return;
+			}
+			catch(Exception e) {
+				tries --;
+				  System.out.println("MST-Auth" + e.toString());
+				  if (tries > 0) {
+					  try 
+					  {
+						  TimeUnit.MILLISECONDS.sleep(5000);	// add a little wait, to see if root will end
+					  }
+					  catch (JSONException | InterruptedException ie) 
+					  {
+						  throw new ServletException("MST-Auth Cassandra InterruptedException " + ie.toString());
+					  }						  
+				  }
+			}
+		}
 	}
 
 	// *******************************************************************
@@ -502,8 +589,8 @@ public class MST_Auth_Servlet extends HttpServlet {
 	//
 	// *******************************************************************
 	private int CheckAuthorization(String direction, String type) {
-	    System.out.println("Graph Name: " + GraphName);
-		JSONObject GraphObject = graphname_to_auth.get(GraphName);
+	    System.out.println("Graph Name: " + sending_servicename);
+		JSONObject GraphObject = graphname_to_auth.get(sending_servicename);
 	    //System.out.println(GraphObject.toString());
 	    JSONArray GraphAuth = GraphObject.getJSONArray("GraphAuthorizations");
 	    int authorized = 0;
@@ -548,7 +635,8 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// check the header (all things MST-Auth receiving)
 	//
 	// *******************************************************************
-	private String CheckInboundHeader(HttpServletRequest request) {
+	private String CheckInboundHeader(HttpServletRequest request) throws ServletException {
+		NewMessageChain = 0;
 		// lets get the body
 		StringBuffer jb = new StringBuffer();
 		String line = null;
@@ -568,13 +656,21 @@ public class MST_Auth_Servlet extends HttpServlet {
 		// see if there is a MST-AUTH header
 		String mstaheader = request.getHeader("MST-AUTH");
 		if (mstaheader == null) {
+			// new message tree, signal as such
+			NewMessageChain = 1;
+			
 			// no header, so from outside
-			GraphName = MyMicroserviceName;
+			// fake out authorization with my name
+			// set a flag for others
+			sending_servicename = MyMicroserviceName;
+			NewMessageChain = 1;
 			// check to see if we can receive from outside
 			if ((CheckAuthorization("RECEIVE", "*") == 0)) {
 				System.out.println("Throw1");
 		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));		
 			}
+			// reverse fakeout
+			sending_servicename = "";
 		}	
 		else {
 			// there is a header
@@ -668,10 +764,46 @@ public class MST_Auth_Servlet extends HttpServlet {
 		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));		
 			}
 			
+		    
 			// good header (fully decrypted if encrypted)
 			// can I receive from them?
-			JSONObject jsonheader = new JSONObject(mstaheader);	
-			GraphName = jsonheader.getString("MicroserviceName");
+			jsonheader = new JSONObject(mstaheader);	
+			
+			
+		    sending_servicename = jsonheader.getString("sending_servicename");
+			String strUUID = jsonheader.getString("sending_instanceid");
+			sending_instanceid = UUID.fromString(strUUID);
+			strUUID = jsonheader.getString("sending_serviceid");
+			sending_serviceid = UUID.fromString(strUUID);
+			
+			// message tracking
+			strUUID = jsonheader.getString("msgid");
+			msgid = UUID.fromString(strUUID);
+			strUUID = jsonheader.getString("parent_msgid");
+			parent_msgid = UUID.fromString(strUUID);
+			strUUID = jsonheader.getString("root_msgid");
+			root_msgid = UUID.fromString(strUUID);
+			
+			String strTime = jsonheader.getString("create_timestamp");			
+			create_timestamp = Timestamp.valueOf(strTime);
+			
+			// track receipt
+		    Date date = new Date();
+		    String timestamp = new Timestamp(date.getTime()).toString();	// use java.sql
+		    jsonheader.put("create_timestamp", timestamp);
+		    jsonheader.put("receiving_serviceid", MyMicroserviceID);
+		    jsonheader.put("receiving_instanceid", MyInstanceID);
+		    jsonheader.put("receiving_servicename", MyMicroserviceName);
+		    
+			String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + jsonheader.toString() +"'";
+			Statement  st = new SimpleStatement(jsonquery);
+			  //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
+
+			System.out.println(st);
+			if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
+			CASSANDRA_SESSION.execute(st);
+			
+
 			if ((CheckAuthorization("RECEIVE", InboundMethod) == 0)) {
 				System.out.println("Throw2");
 		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));
@@ -697,23 +829,43 @@ public class MST_Auth_Servlet extends HttpServlet {
 	private void BuildHeaders() {
 		// create header
 		JSONObject newobj = new JSONObject();		
-		newobj.put("MicroserviceName", MyMicroserviceName);
-		newobj.put("MicroserviceID", MyMicroserviceID);
-		newobj.put("InstanceID", MyInstanceID);
+		newobj.put("sending_servicename", MyMicroserviceName);		
+		newobj.put("sending_serviceid", MyMicroserviceID);
+		newobj.put("sending_instanceid", MyInstanceID);
+		newobj.put("parent_msgid", msgid);
+		newobj.put("root_msgid", root_msgid);
 	    Date date = new Date();
 	    String timestamp = new Timestamp(date.getTime()).toString();	// use java.sql
-		newobj.put("timestamp", timestamp);
+		newobj.put("create_timestamp", timestamp);
+		UUID newmsgid = UUID.randomUUID();
+		newobj.put("msgid", newmsgid);
+		if (NewMessageChain == 1) {
+			newobj.put("parent_msgid", newmsgid);
+			newobj.put("root_msgid", newmsgid);			
+			
+		}
+		else {
+			newobj.put("parent_msgid", msgid);
+			newobj.put("root_msgid", root_msgid);			
+		}
+		msgid = UUID.randomUUID();
+		newobj.put("msgid", msgid);
 		
+		String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + newobj.toString() +"'";
+		Statement  st = new SimpleStatement(jsonquery);
+		  //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
+
+
 		String newheader = newobj.toString();
 		String graphencryption;
 	    String sendSecret = "";
 		try {
 		
-			PublicKey graphkey = graphname_to_public.get(GraphName);
+			PublicKey graphkey = graphname_to_public.get(sending_servicename);
 		    Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
 		    cipher.init(Cipher.ENCRYPT_MODE, graphkey); 
 		    
-			JSONObject GraphObject = graphname_to_auth.get(GraphName);
+			JSONObject GraphObject = graphname_to_auth.get(sending_servicename);
 
 		    if (GraphObject != null ) {
 				graphencryption = GraphObject.getString("GraphEncryption");
@@ -847,8 +999,8 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// *******************************************************************
 	public void SetMicroservice(String microservicename) {
 		OutboundBody = "";
-		GraphName = microservicename;
-		JSONObject GraphObject = graphname_to_auth.get(GraphName);
+		sending_servicename = microservicename;
+		JSONObject GraphObject = graphname_to_auth.get(sending_servicename);
 		GraphUID = GraphObject.getString("GraphURI");
 		try {
 			mstauthbuilder = HttpRequest.newBuilder()
