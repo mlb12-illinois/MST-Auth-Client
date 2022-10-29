@@ -1,14 +1,12 @@
 package mst_auth_library;
 
 import mst_auth_client.MST_Auth_Client;
-import software.aws.mcs.auth.SigV4AuthProvider;
+//import software.aws.mcs.auth.SigV4AuthProvider;
 
 import java.io.BufferedReader;
-//import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,7 +33,6 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Properties;
 import java.util.UUID;
@@ -43,7 +40,6 @@ import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 
 import org.json.JSONArray;
@@ -52,8 +48,6 @@ import org.json.JSONObject;
 
 import com.datastax.driver.core.Cluster;
 
-import java.io.IOException;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -61,30 +55,12 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import javax.print.DocFlavor.URL;
 import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
-
-// cassandra stuff
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
-import software.aws.mcs.auth.SigV4AuthProvider;
 
 
 /**
@@ -169,16 +145,10 @@ public class MST_Auth_Servlet extends HttpServlet {
 	private static String CASSANDRA_USER = ""; 
 	private static String CASSANDRA_PASSWORD = ""; 
        
-    /**
-     * @see HttpServlet#HttpServlet()
-     */
-    public MST_Auth_Servlet() {
+     public MST_Auth_Servlet() {
         super();
     }
 
-	/**
-	 * @see Servlet#init(ServletConfig)
-	 */
 	// *******************************************************************
 	//
     // init
@@ -205,6 +175,9 @@ public class MST_Auth_Servlet extends HttpServlet {
 		//
 		// initialize some variables
 		//
+		MyMicroserviceName = "";
+		MyMicroserviceID = "";
+		MyInstanceID = "";
 		InboundMethod = "";
 		OutboundMethod = "";
 		OutboundBody = "";
@@ -241,22 +214,18 @@ public class MST_Auth_Servlet extends HttpServlet {
 		    	 boolean success=f1.delete();
 		    	 if(!success){
 		 		    System.out.println("OY Restore Property Defaults did NOT work");
-		    	 }
-		    	 else {
-			 		System.out.println("OY Restore Property Defaults DID work");
-			    	throw(new IOException ("RELOAD PROPERTY AFTER DELETE"));
+			    	throw(new ServletException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Restore Property Defaults did NOT work"));	
 		    	 }
 	    	 }
 
 	    } catch (IOException  e) {
-	    	// TODO Auto-generated catch block
 		    System.out.println("property not found load from default");		    	
 			// get the json string from the WEB-INF directory			
 			InputStream stream = classLoader.getResourceAsStream("../MSTAConfiguration.json");
 		    //System.out.println(stream);
 			if (stream == null) {
 			    System.out.println("MSTAConfiguration.json missing from WEB-INF folder");
-		    	throw(new NullPointerException ("MSTAConfiguration.json missing from WEB-INF folder"));		
+		    	throw(new NullPointerException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
 			}
 			ByteArrayOutputStream result = new ByteArrayOutputStream();
 			byte[] buffer = new byte[2048];
@@ -271,7 +240,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 			    mstaproperties.store(new FileWriter(appConfigPath), "store to properties file");
 			} catch (IOException e1) {
 			    System.out.println("MSTAConfiguration.json missing from WEB-INF folder");
-		    	throw(new NullPointerException ("MSTAConfiguration.json missing from WEB-INF folder"));		
+		    	throw(new NullPointerException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
 			}
 	    }
 
@@ -292,8 +261,8 @@ public class MST_Auth_Servlet extends HttpServlet {
 				MSTA_URL = r2sconifg.getString("MSTA_URL");
 			else {
 				if (URL_REQUIRED == 1) {
-				    System.out.println(MyMicroserviceName + "MSTA_URL missing MSTAConfiguration.json in WEB-INF folder");
-			    	throw(new NullPointerException (MyMicroserviceName + "MSTA_URL missing MSTAConfiguration.json in WEB-INF folder"));		
+				    System.out.println(MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": MSTA_URL missing MSTAConfiguration.json in WEB-INF folder");
+			    	throw(new NullPointerException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": MSTA_URL missing MSTAConfiguration.json in WEB-INF folder"));		
 				}
 			}
 			//
@@ -344,20 +313,6 @@ public class MST_Auth_Servlet extends HttpServlet {
 				    secretKey = new SecretKeySpec(decodesecret, 0, decodesecret.length, "AES"); 
 				}
 				
-			    //System.out.println(MyMicroserviceName);
-				/* took to long to do this, lets save it for a while
-			    InputStream stream1 = classLoader.getResourceAsStream("../publicKey.key");
-			    //System.out.println(stream1);
-				if (stream1 == null) {
-				    System.out.println("publicKey missing from WEB-INF folder");
-			    	throw(new NullPointerException (MyMicroserviceName + "MSTAConfiguration.json missing from WEB-INF folder"));		
-				}
-			    ObjectInputStream oin1 = new ObjectInputStream(stream1);
-			    publicKey = (PublicKey) oin1.readObject();
-				oin1.close();
-				stream1.close();
-				*/
-				//System.out.println("MyPublic : " + MyPublic);
 			    byte[] decodepublic = Base64.getDecoder().decode(MyPublic);		    
 			    X509EncodedKeySpec ks3 =  new X509EncodedKeySpec(decodepublic);
 			    KeyFactory kf3 = KeyFactory.getInstance("RSA");
@@ -368,7 +323,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 			    //System.out.println(stream2);
 				if (stream2 == null) {
 				    System.out.println("privateKey missing from WEB-INF folder");
-			    	throw(new NullPointerException (MyMicroserviceName + "MSTAConfiguration.json missing from WEB-INF folder"));		
+			    	throw(new NullPointerException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
 				}
 				ObjectInputStream oin2 = new ObjectInputStream(stream2);
 			    byte[] loadedprivate = (byte[]) oin2.readObject();
@@ -383,20 +338,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 				PKCS8EncodedKeySpec ks2 =  new PKCS8EncodedKeySpec(decryptedprivate);
 			    KeyFactory kf2 = KeyFactory.getInstance("RSA");
 			    privateKey = kf2.generatePrivate(ks2);
-			    
-			    // can remove
-			    /*
-			    Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
-			    cipher.init(Cipher.ENCRYPT_MODE, publicKey); 
-			    String teststring = "only a test";
-			    byte[] testarray =  cipher.doFinal(teststring.getBytes());
-			    
-			    cipher.init(Cipher.DECRYPT_MODE, privateKey);  
-				String testhope =  new String(cipher.doFinal(testarray));
-			    System.out.println(testhope);
-			    */
-			    // *****************************************************
-			    				
+			    			    				
 				//
 				// all cached so create a UUID
 				// MyInstanceID "########-####-####-####-############" is not used from config, there as placeholder
@@ -405,10 +347,10 @@ public class MST_Auth_Servlet extends HttpServlet {
 				//System.out.println("MyInstanceID" + MyInstanceID);
 				// something was missing, so through error
 				if (invalidconfig == 1 ) {
-				    System.out.println(MyMicroserviceName + " Information missing in MSTAConfiguration.json in WEB-INF folder");
-			    	throw(new NullPointerException (MyMicroserviceName + " Information missing in MSTAConfiguration.json in WEB-INF folder"));		
+				    System.out.println(MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Information missing in MSTAConfiguration.json in WEB-INF folder");
+			    	throw(new NullPointerException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Information missing in MSTAConfiguration.json in WEB-INF folder"));		
 				}
-		    	System.out.println(MyMicroserviceName + " WEB-INF");
+		    	System.out.println(MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": WEB-INF");
 			    //System.out.println(r2sconifg.toString());
 			}
 			else {
@@ -447,25 +389,18 @@ public class MST_Auth_Servlet extends HttpServlet {
 		catch (IOException e) {
 			System.out.println(e.toString());
 		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (NoSuchPaddingException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (InvalidKeyException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IllegalBlockSizeException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (BadPaddingException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (InvalidKeySpecException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}	
 		
@@ -507,7 +442,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 					  }
 					  catch (JSONException | InterruptedException ie) 
 					  {
-						  throw new ServletException("MST-Auth Cassandra InterruptedException " + ie.toString());
+						  throw new ServletException(MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": MST-Auth Cassandra InterruptedException " + ie.toString());
 					  }						  
 				  }
 			}
@@ -523,57 +458,74 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// pass to the client if all things are good with the check
 	// TO DO ADD OPTIONAL ENCRYPTION ON ReSPONSE
 	// *******************************************************************
-	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
-	 */
+	private void HandleException(String e) {
+		// to do add communication to server
+	    System.out.println(e);		
+	}
+	
+
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		InboundMethod = "GET";
-		String decryptedbody = CheckInboundHeader(request);
-		
-		myresponse = response;
-		MST_Client.doGet(request, response, decryptedbody);
-		
-		InboundMethod = "";
-		myresponse = null;
+		try {
+			InboundMethod = "GET";
+			String decryptedbody = CheckInboundHeader(request);
+			
+			myresponse = response;
+			MST_Client.doGet(request, response, decryptedbody);
+			
+			InboundMethod = "";
+			myresponse = null;
+		}
+		catch (MSTAException e) {
+			HandleException(e.toString());
+		}
 	}
 
-	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
-	 */
+
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		InboundMethod = "POST";
-		String decryptedbody = CheckInboundHeader(request);
-		
-		myresponse = response;
-		MST_Client.doPost(request, response, decryptedbody);
-		InboundMethod = "";
-		myresponse = null;
+		try {
+			InboundMethod = "POST";
+			String decryptedbody = CheckInboundHeader(request);
+			
+			myresponse = response;
+			MST_Client.doPost(request, response, decryptedbody);
+			InboundMethod = "";
+			myresponse = null;
+		}
+		catch (MSTAException e) {
+			HandleException(e.toString());			
+		}
 	}
 
-	/**
-	 * @see HttpServlet#doPut(HttpServletRequest, HttpServletResponse)
-	 */
+
 	protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		InboundMethod = "PUT";
-		String decryptedbody = CheckInboundHeader(request);
-		
-		myresponse = response;
-		MST_Client.doPut(request, response, decryptedbody);
-		InboundMethod = "";
-		myresponse = null;
+		try {
+			InboundMethod = "PUT";
+			String decryptedbody = CheckInboundHeader(request);
+			
+			myresponse = response;
+			MST_Client.doPut(request, response, decryptedbody);
+			InboundMethod = "";
+			myresponse = null;
+		}
+		catch (MSTAException e) {
+			HandleException(e.toString());			
+		}
 	}
 
-	/**
-	 * @see HttpServlet#doDelete(HttpServletRequest, HttpServletResponse)
-	 */
+
 	protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		InboundMethod = "DELETE";
-		String decryptedbody = CheckInboundHeader(request);
-		
-		myresponse = response;
-		MST_Client.doDelete(request, response, decryptedbody);
-		InboundMethod = "";
-		myresponse = null;
+		try {
+			InboundMethod = "DELETE";
+			String decryptedbody = CheckInboundHeader(request);
+			
+			myresponse = response;
+			MST_Client.doDelete(request, response, decryptedbody);
+			InboundMethod = "";
+			myresponse = null;
+		}
+		catch (MSTAException e) {
+			HandleException(e.toString());			
+		}
 	}
 
 	// *******************************************************************
@@ -637,7 +589,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// check the header (all things MST-Auth receiving)
 	//
 	// *******************************************************************
-	private String CheckInboundHeader(HttpServletRequest request) throws ServletException {
+	private String CheckInboundHeader(HttpServletRequest request) throws MSTAException, ServletException {
 		NewMessageChain = 0;
 		// lets get the body
 		StringBuffer jb = new StringBuffer();
@@ -651,7 +603,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 			reader.reset();
 		} 
 		catch (IOException e) { 
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Invalid Signature"));		
 		}
 	  	String newbody = jb.toString();
 		
@@ -664,14 +616,15 @@ public class MST_Auth_Servlet extends HttpServlet {
 			// check to see if we can receive from outside
 			if ((CheckAuthorization(MyMicroserviceName, "RECEIVE", "*") == 0)) {
 				System.out.println("Throw1");
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));		
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Non MST-AUTH rest calls not avalable"));		
 			}
 		}	
 		else {
 			// there is a header
 			// first things first, signature is required
 			String graphensignature = request.getHeader("MST-AUTH-Signature");
-			if (graphensignature == null) throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));
+			if (graphensignature == null) 
+	    		throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Non MST-AUTH rest calls not avalable"));		
 		    byte[] signature = Base64.getDecoder().decode(graphensignature);
 		
 		    try {
@@ -686,12 +639,12 @@ public class MST_Auth_Servlet extends HttpServlet {
 				sign.update(stringHash.getBytes(), 0, stringHash.getBytes().length );
 				boolean verify = sign.verify(signature);
 				//System.out.println("Signature " +  (verify ? "OK" : "Not OK"));	
-				if (verify == false) throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));	
+				if (verify == false) throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Invalid Signature"));	
 				
 				// good signature
 				// ok lets check encryption			
 				String graphencryption = request.getHeader("MST-AUTH-Encryption");
-				if (graphencryption == null) throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));
+				if (graphencryption == null) throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Non MST-AUTH rest calls not avalable"));
 
 				//  get the encryption type from the header
 		    	JSONObject jsonenc =  new JSONObject(graphencryption);
@@ -734,29 +687,23 @@ public class MST_Auth_Servlet extends HttpServlet {
 			    }
 
 			} catch (InvalidKeyException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));		
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": InvalidKeyException" + e));		
 			} catch (NoSuchAlgorithmException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));		
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": NoSuchAlgorithmException" + e));		
 			} catch (SignatureException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));		
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": SignatureException" + e));		
 			} catch (NoSuchPaddingException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));		
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": NoSuchPaddingException" + e));		
 			} catch (IllegalBlockSizeException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));		
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": IllegalBlockSizeException" + e));		
 			} catch (BadPaddingException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));		
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": BadPaddingException" + e));		
 			}
 			
 		    
@@ -786,9 +733,9 @@ public class MST_Auth_Servlet extends HttpServlet {
 			create_timestamp = Timestamp.valueOf(strTime);
 
 		    if (!MyMicroserviceID.equals(receiving_serviceid.toString()))
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": " + MyMicroserviceID + " : " + receiving_serviceid + " wrong service id sent"));
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": " + receiving_serviceid + " wrong service id sent"));
 		    if (!MyMicroserviceName.equals(receiving_servicename)) 
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": " + receiving_servicename + " wrong service name sent"));
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": " + receiving_servicename + " wrong service name sent"));
 
 			// track receipt
 		    Date date = new Date();
@@ -810,8 +757,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 			if (NewMessageChain == 0 ) {
 			    //System.out.println("Receive Header my name : " + MyMicroserviceName + " sender name: " + sending_servicename);
 				if ((CheckAuthorization(sending_servicename, "RECEIVE", InboundMethod) == 0)) {
-					System.out.println("Throw2");
-			    	throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));
+			    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Non MST-AUTH rest calls not avalable"));
 				}
 			}
 			
@@ -832,7 +778,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// build the headers (all things MST-Auth sending)
 	//
 	// *******************************************************************
-	private void BuildHeaders() throws ServletException {
+	private void BuildHeaders() throws ServletException, MSTAException {
 		// create header
 		JSONObject newobj = new JSONObject();		
 		newobj.put("sending_servicename", MyMicroserviceName);		
@@ -936,28 +882,22 @@ public class MST_Auth_Servlet extends HttpServlet {
 		    	}		
 		    }
 		    else {
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+		    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Build Header Invalid Arguments"));		
 		    }
 		} catch (NoSuchAlgorithmException e) {
-		 //TODO Auto-generated catch block
-			e.printStackTrace();
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": NoSuchAlgorithmException" + e));		
 		} catch (NoSuchPaddingException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": NoSuchPaddingException" + e));		
 		} catch (InvalidKeyException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": InvalidKeyException" + e));		
 		} catch (IllegalBlockSizeException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": IllegalBlockSizeException" + e));		
 		} catch (BadPaddingException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": BadPaddingException" + e));		
 		}
 		
 		// send the body
@@ -990,17 +930,14 @@ public class MST_Auth_Servlet extends HttpServlet {
 		    mstauthbuilder.header("MST-AUTH-Signature", s);
 		    
 		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": NoSuchAlgorithmException" + e));		
 		} catch (InvalidKeyException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": InvalidKeyException" + e));		
 		} catch (SignatureException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": Build Header Invalid Arguments"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": SignatureException" + e));		
 		}
 
 	    //System.out.println(MyMicroserviceName + ": Setting Header");
@@ -1031,11 +968,11 @@ public class MST_Auth_Servlet extends HttpServlet {
 		}
 	}
 	
-	public void SetMethodWithBodyString(String method, String body ) {	
+	public void SetMethodWithBodyString(String method, String body ) throws MSTAException {	
 		// make sure this method is authorized
 	    //System.out.println("SetMethodWithBodyString : " + MyMicroserviceName);
 		if ((CheckAuthorization(OutboundService, "SEND", method) == 0)) {
-	    	throw(new IllegalArgumentException (MyMicroserviceName + ": " + method + " not avalable"));		
+	    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Invalid Send Authorization"));		
 		}
 		OutboundMethod = method;
 		OutboundBody = body;
@@ -1051,7 +988,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// the actual send
 	//
 	// *******************************************************************
-	public HttpResponse SendRequest() throws ServletException {	
+	public HttpResponse SendRequest() throws ServletException, MSTAException {	
 		
 		  BuildHeaders();
 		  
@@ -1087,7 +1024,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 					  }
 					  catch (JSONException | InterruptedException ie) 
 					  {
-						  throw new IOException("InterruptedException " + ie.toString());
+				    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": InterruptedException" + ie));		
 					  }						  
 				  }
 				  return mstresponse;
