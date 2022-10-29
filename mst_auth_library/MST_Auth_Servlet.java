@@ -136,10 +136,12 @@ public class MST_Auth_Servlet extends HttpServlet {
 	private String InboundMethod;
 	private String OutboundMethod;
 	private String OutboundBody;
+	private String OutboundService;	
 	
 	private String sending_servicename;	
 	private UUID sending_instanceid;
 	private UUID sending_serviceid;
+	private String receiving_servicename;	
 	private UUID receiving_instanceid;
 	private UUID receiving_serviceid;
 
@@ -309,7 +311,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 					MSTA_TRIES = r2sconifg.getInt("MSTA_TRIES");
 				if(!r2sconifg.has("MyMicroserviceName")) invalidconfig = 1; else
 					MyMicroserviceName = r2sconifg.getString("MyMicroserviceName");
-				System.out.println(MyMicroserviceName);
+				//System.out.println(MyMicroserviceName);
 				if(!r2sconifg.has("MyMicroserviceID")) invalidconfig = 1; else
 					MyMicroserviceID = r2sconifg.getString("MyMicroserviceID");
 				if(!r2sconifg.has("MyURI")) invalidconfig = 1; else
@@ -400,14 +402,14 @@ public class MST_Auth_Servlet extends HttpServlet {
 				// MyInstanceID "########-####-####-####-############" is not used from config, there as placeholder
 				MyInstanceID = UUID.randomUUID().toString();
 				r2sconifg.put("MyInstanceID", MyInstanceID); // only here so System.out works below
-				System.out.println("MyInstanceID" + MyInstanceID);
+				//System.out.println("MyInstanceID" + MyInstanceID);
 				// something was missing, so through error
 				if (invalidconfig == 1 ) {
 				    System.out.println(MyMicroserviceName + " Information missing in MSTAConfiguration.json in WEB-INF folder");
 			    	throw(new NullPointerException (MyMicroserviceName + " Information missing in MSTAConfiguration.json in WEB-INF folder"));		
 				}
 		    	System.out.println(MyMicroserviceName + " WEB-INF");
-			    System.out.println(r2sconifg.toString());
+			    //System.out.println(r2sconifg.toString());
 			}
 			else {
 				// ********************************************
@@ -438,8 +440,8 @@ public class MST_Auth_Servlet extends HttpServlet {
 			    	 String graphname = GraphObject.getString("GraphName");
 			    	 graphname_to_auth.put(graphname, GraphObject);
 			    }
-		    	System.out.println(MyMicroserviceName+ " MST-Auth Server");
-			    System.out.println(jsonobj.toString());
+		    	//System.out.println(MyMicroserviceName+ " MST-Auth Server");
+			    //System.out.println(jsonobj.toString());
 			}
 		} 
 		catch (IOException e) {
@@ -588,9 +590,9 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// to check if this type of communication is authorized
 	//
 	// *******************************************************************
-	private int CheckAuthorization(String direction, String type) {
-	    System.out.println("Graph Name: " + sending_servicename);
-		JSONObject GraphObject = graphname_to_auth.get(sending_servicename);
+	private int CheckAuthorization(String service, String direction, String type) {
+	    //System.out.println("My name: " + MyMicroserviceName + " Graph Name: " + service + " type: " + type);
+		JSONObject GraphObject = graphname_to_auth.get(service);
 	    //System.out.println(GraphObject.toString());
 	    JSONArray GraphAuth = GraphObject.getJSONArray("GraphAuthorizations");
 	    int authorized = 0;
@@ -656,21 +658,14 @@ public class MST_Auth_Servlet extends HttpServlet {
 		// see if there is a MST-AUTH header
 		String mstaheader = request.getHeader("MST-AUTH");
 		if (mstaheader == null) {
-			// new message tree, signal as such
-			NewMessageChain = 1;
-			
 			// no header, so from outside
-			// fake out authorization with my name
 			// set a flag for others
-			sending_servicename = MyMicroserviceName;
 			NewMessageChain = 1;
 			// check to see if we can receive from outside
-			if ((CheckAuthorization("RECEIVE", "*") == 0)) {
+			if ((CheckAuthorization(MyMicroserviceName, "RECEIVE", "*") == 0)) {
 				System.out.println("Throw1");
 		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));		
 			}
-			// reverse fakeout
-			sending_servicename = "";
 		}	
 		else {
 			// there is a header
@@ -690,7 +685,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 				sign.initVerify((PublicKey) publicKey);
 				sign.update(stringHash.getBytes(), 0, stringHash.getBytes().length );
 				boolean verify = sign.verify(signature);
-				System.out.println("Signature " +  (verify ? "OK" : "Not OK"));	
+				//System.out.println("Signature " +  (verify ? "OK" : "Not OK"));	
 				if (verify == false) throw(new IllegalArgumentException (MyMicroserviceName + ": Invalid Signature"));	
 				
 				// good signature
@@ -775,6 +770,9 @@ public class MST_Auth_Servlet extends HttpServlet {
 			sending_instanceid = UUID.fromString(strUUID);
 			strUUID = jsonheader.getString("sending_serviceid");
 			sending_serviceid = UUID.fromString(strUUID);
+			strUUID = jsonheader.getString("receiving_serviceid");
+			receiving_serviceid = UUID.fromString(strUUID);
+			receiving_servicename = jsonheader.getString("receiving_servicename");
 			
 			// message tracking
 			strUUID = jsonheader.getString("msgid");
@@ -786,27 +784,35 @@ public class MST_Auth_Servlet extends HttpServlet {
 			
 			String strTime = jsonheader.getString("create_timestamp");			
 			create_timestamp = Timestamp.valueOf(strTime);
-			
+
+		    if (!MyMicroserviceID.equals(receiving_serviceid.toString()))
+		    	throw(new IllegalArgumentException (MyMicroserviceName + ": " + MyMicroserviceID + " : " + receiving_serviceid + " wrong service id sent"));
+		    if (!MyMicroserviceName.equals(receiving_servicename)) 
+		    	throw(new IllegalArgumentException (MyMicroserviceName + ": " + receiving_servicename + " wrong service name sent"));
+
 			// track receipt
 		    Date date = new Date();
 		    String timestamp = new Timestamp(date.getTime()).toString();	// use java.sql
 		    jsonheader.put("create_timestamp", timestamp);
-		    jsonheader.put("receiving_serviceid", MyMicroserviceID);
+		    //jsonheader.put("receiving_serviceid", MyMicroserviceID);
 		    jsonheader.put("receiving_instanceid", MyInstanceID);
-		    jsonheader.put("receiving_servicename", MyMicroserviceName);
+		    //jsonheader.put("receiving_servicename", MyMicroserviceName);
 		    
 			String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + jsonheader.toString() +"'";
 			Statement  st = new SimpleStatement(jsonquery);
 			  //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
-
-			System.out.println(st);
+			//System.out.println(st);
+			
 			if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
 			CASSANDRA_SESSION.execute(st);
 			
-
-			if ((CheckAuthorization("RECEIVE", InboundMethod) == 0)) {
-				System.out.println("Throw2");
-		    	throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));
+			// not a new chain so check auth
+			if (NewMessageChain == 0 ) {
+			    //System.out.println("Receive Header my name : " + MyMicroserviceName + " sender name: " + sending_servicename);
+				if ((CheckAuthorization(sending_servicename, "RECEIVE", InboundMethod) == 0)) {
+					System.out.println("Throw2");
+			    	throw(new IllegalArgumentException (MyMicroserviceName + ": Non MST-AUTH rest calls not avalable"));
+				}
 			}
 			
 			// anything else we want to do with the jsonheader put it here
@@ -826,7 +832,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// build the headers (all things MST-Auth sending)
 	//
 	// *******************************************************************
-	private void BuildHeaders() {
+	private void BuildHeaders() throws ServletException {
 		// create header
 		JSONObject newobj = new JSONObject();		
 		newobj.put("sending_servicename", MyMicroserviceName);		
@@ -851,9 +857,20 @@ public class MST_Auth_Servlet extends HttpServlet {
 		msgid = UUID.randomUUID();
 		newobj.put("msgid", msgid);
 		
+		newobj.put("receiving_servicename", OutboundService); 
+		JSONObject GraphObject = graphname_to_auth.get(OutboundService);
+		String outinfo = GraphObject.getString("GraphID");
+		newobj.put("receiving_serviceid", outinfo);
+		
+		
 		String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + newobj.toString() +"'";
 		Statement  st = new SimpleStatement(jsonquery);
 		  //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
+		//System.out.println(st);
+		
+		if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
+		CASSANDRA_SESSION.execute(st);
+		
 
 
 		String newheader = newobj.toString();
@@ -861,11 +878,11 @@ public class MST_Auth_Servlet extends HttpServlet {
 	    String sendSecret = "";
 		try {
 		
-			PublicKey graphkey = graphname_to_public.get(sending_servicename);
+			PublicKey graphkey = graphname_to_public.get(OutboundService);
 		    Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
 		    cipher.init(Cipher.ENCRYPT_MODE, graphkey); 
 		    
-			JSONObject GraphObject = graphname_to_auth.get(sending_servicename);
+			//JSONObject GraphObject = graphname_to_auth.get(OutboundService);
 
 		    if (GraphObject != null ) {
 				graphencryption = GraphObject.getString("GraphEncryption");
@@ -999,9 +1016,11 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// *******************************************************************
 	public void SetMicroservice(String microservicename) {
 		OutboundBody = "";
-		sending_servicename = microservicename;
-		JSONObject GraphObject = graphname_to_auth.get(sending_servicename);
+		OutboundService = microservicename;
+		JSONObject GraphObject = graphname_to_auth.get(OutboundService);
 		GraphUID = GraphObject.getString("GraphURI");
+	    //System.out.println(MyMicroserviceName + OutboundService + " "+ GraphUID);
+		
 		try {
 			mstauthbuilder = HttpRequest.newBuilder()
 				.uri(new URI(GraphUID))
@@ -1014,7 +1033,8 @@ public class MST_Auth_Servlet extends HttpServlet {
 	
 	public void SetMethodWithBodyString(String method, String body ) {	
 		// make sure this method is authorized
-		if ((CheckAuthorization("SEND", method) == 0)) {
+	    //System.out.println("SetMethodWithBodyString : " + MyMicroserviceName);
+		if ((CheckAuthorization(OutboundService, "SEND", method) == 0)) {
 	    	throw(new IllegalArgumentException (MyMicroserviceName + ": " + method + " not avalable"));		
 		}
 		OutboundMethod = method;
@@ -1031,7 +1051,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 	// the actual send
 	//
 	// *******************************************************************
-	public HttpResponse SendRequest() {	
+	public HttpResponse SendRequest() throws ServletException {	
 		
 		  BuildHeaders();
 		  
@@ -1070,6 +1090,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 						  throw new IOException("InterruptedException " + ie.toString());
 					  }						  
 				  }
+				  return mstresponse;
 			  }
 			  else {
 				  // 200 so good
