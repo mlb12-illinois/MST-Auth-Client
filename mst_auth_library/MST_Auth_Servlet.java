@@ -82,7 +82,7 @@ import com.datastax.driver.core.Statement;
  */
 @WebServlet("/MST_Auth_Servlet")
 public class MST_Auth_Servlet extends HttpServlet {
-	private int CASSANDRA = 0;
+	private int CASSANDRA = 1;
 	private int RESTOREPROPERTYDEFAULTS = 0;
 	// parameters either from properties, MSTAConfiguration.json or from MST-Auth Register
 	private int MSTA_DO_INIT;
@@ -548,6 +548,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 	    //System.out.println("My name: " + MyMicroserviceName + " Graph Name: " + service + " type: " + type);
 		JSONObject GraphObject = graphname_to_auth.get(service);
 	    //System.out.println(GraphObject.toString());
+		if (GraphObject == null) return 0;
 	    JSONArray GraphAuth = GraphObject.getJSONArray("GraphAuthorizations");
 	    int authorized = 0;
 	    // loop through graph
@@ -812,6 +813,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 		JSONObject GraphObject = graphname_to_auth.get(OutboundService);
 		String outinfo = GraphObject.getString("GraphID");
 		newobj.put("receiving_serviceid", outinfo);
+		//newobj.put("receiving_instanceid", "");
 		
 	    if (CASSANDRA == 1) {		
 			String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + newobj.toString() +"'";
