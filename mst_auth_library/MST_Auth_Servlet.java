@@ -82,6 +82,7 @@ import com.datastax.driver.core.Statement;
  */
 @WebServlet("/MST_Auth_Servlet")
 public class MST_Auth_Servlet extends HttpServlet {
+	private int CASSANDRA = 0;
 	private int RESTOREPROPERTYDEFAULTS = 0;
 	// parameters either from properties, MSTAConfiguration.json or from MST-Auth Register
 	private int MSTA_DO_INIT;
@@ -414,6 +415,7 @@ public class MST_Auth_Servlet extends HttpServlet {
 	}
 
 	private void CassandraCreate() throws ServletException {
+		if ( CASSANDRA == 0 ) return;
 		/////////////////////////////////////////
 		// temp cassandra stuff
 		int tries = 3;
@@ -745,21 +747,24 @@ public class MST_Auth_Servlet extends HttpServlet {
 		    jsonheader.put("receiving_instanceid", MyInstanceID);
 		    //jsonheader.put("receiving_servicename", MyMicroserviceName);
 		    
-			String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + jsonheader.toString() +"'";
-			Statement  st = new SimpleStatement(jsonquery);
-			  //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
-			//System.out.println(st);
-			
-			if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
-			CASSANDRA_SESSION.execute(st);
-			
-			// not a new chain so check auth
-			if (NewMessageChain == 0 ) {
-			    //System.out.println("Receive Header my name : " + MyMicroserviceName + " sender name: " + sending_servicename);
-				if ((CheckAuthorization(sending_servicename, "RECEIVE", InboundMethod) == 0)) {
-			    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Non MST-AUTH rest calls not avalable"));
+		    if (CASSANDRA == 1) {
+				String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + jsonheader.toString() +"'";
+				Statement  st = new SimpleStatement(jsonquery);
+				  //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
+				//System.out.println(st);
+				
+				if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
+				CASSANDRA_SESSION.execute(st);
+				
+				// not a new chain so check auth
+				if (NewMessageChain == 0 ) {
+				    //System.out.println("Receive Header my name : " + MyMicroserviceName + " sender name: " + sending_servicename);
+					if ((CheckAuthorization(sending_servicename, "RECEIVE", InboundMethod) == 0)) {
+				    	throw(new MSTAException (MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": Non MST-AUTH rest calls not avalable"));
+					}
 				}
-			}
+		    	
+		    }
 			
 			// anything else we want to do with the jsonheader put it here
 			// OY
@@ -808,15 +813,15 @@ public class MST_Auth_Servlet extends HttpServlet {
 		String outinfo = GraphObject.getString("GraphID");
 		newobj.put("receiving_serviceid", outinfo);
 		
-		
-		String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + newobj.toString() +"'";
-		Statement  st = new SimpleStatement(jsonquery);
-		  //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
-		//System.out.println(st);
-		
-		if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
-		CASSANDRA_SESSION.execute(st);
-		
+	    if (CASSANDRA == 1) {		
+			String jsonquery = "INSERT INTO mstauth.service_tree JSON '" + newobj.toString() +"'";
+			Statement  st = new SimpleStatement(jsonquery);
+			  //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
+			//System.out.println(st);
+			
+			if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
+			CASSANDRA_SESSION.execute(st);
+	    }
 
 
 		String newheader = newobj.toString();
