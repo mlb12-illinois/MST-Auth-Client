@@ -95,5 +95,10 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 			MSTAUtils.HandleException(e.toString());
 		}			
 	}
+	
+//	public void CassandraLog(String str) {
+//		System.out.println("OYBase " + str);
+
+//	}
 }
 

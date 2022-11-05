@@ -80,27 +80,12 @@ import com.datastax.driver.core.Statement;
 /**
  * Servlet implementation class mst_auth_servlet
  */
-@WebServlet("/MST_Auth_Servlet")
+
 public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 	//private HttpRequest.Builder mstauthbuilder;
-	////////////////////////////////////////////////
-	// temp cassandra stuff
-	private static final  int CASSANDRA = 0;	// set to 0 to disable cassandra
-	public static Cluster CASSANDRA_CLUSTER = null;
-	private Session CASSANDRA_SESSION = null;
-    private static String CASSANDRA_URL = "127.0.0.1";
-	private static Integer CASSANDRA_PORT = 9042;
-	//private static String CASSANDRA_AUTH = "";
-	//private static String CASSANDRA_USER = ""; 
-	//private static String CASSANDRA_PASSWORD = ""; 
-	private int RESTOREPROPERTYDEFAULTS = 0;
+	private int RESTOREPROPERTYDEFAULTS = 1;
+	private int NOPROPERTY = 1;
 	
-	// parameters either from properties, MSTAConfiguration.json or from MST-Auth Register
-	
-	//
-	//the in memory hash map of all things MST-AUTH
-	//private LinkedHashMap<String, JSONObject> graphname_to_auth = null;
-	//private LinkedHashMap<String, PublicKey> graphname_to_public = null;
 
 	private MST_Auth_Client MST_Client;       
     public MST_Auth_Servlet() {
@@ -156,25 +141,50 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 	    Properties mstaproperties = new Properties();
 	    String strproperties = "";
 	    try {
-	    	FileInputStream fis = new FileInputStream(appConfigPath);
-		    mstaproperties.load(fis);
-		    strproperties = mstaproperties.getProperty("MST-Auth", "defaultName");
-		    //System.out.println("stored prop: " + strproperties);
-		    fis.close();
-		    
-		    // at built time, we can delete a property file here
-		    if (RESTOREPROPERTYDEFAULTS == 1) {
-		    	strproperties = "";	
-		    	 File f1 = new File(appConfigPath); 
-		    	 boolean success=f1.delete();
-		    	 if(!success){
-		 		    System.out.println("OY Restore Property Defaults did NOT work");
-			    	throw(new ServletException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": Restore Property Defaults did NOT work"));	
-		    	 }
-	    	 }
+	    	if (NOPROPERTY == 0) {
+		    	FileInputStream fis = new FileInputStream(appConfigPath);
+			    mstaproperties.load(fis);
+			    strproperties = mstaproperties.getProperty("MST-Auth", "defaultName");
+			    //System.out.println("stored prop: " + strproperties);
+			    fis.close();
+			    
+			    // at built time, we can delete a property file here
+			    if (RESTOREPROPERTYDEFAULTS == 1) {
+			    	strproperties = "";	
+			    	 File f1 = new File(appConfigPath); 
+			    	 boolean success=f1.delete();
+			    	 if(!success){
+			 		    System.out.println("MST-Auth Restore Property Defaults did NOT work");
+				    	throw(new ServletException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": Restore Property Defaults did NOT work"));	
+			    	 }
+			    	 throw(new IOException("MST-Auth Restored Property"));
+		    	 }	    		
+	    	}
+	    	//
+	    	// for now will always use json and not properties
+	    	//
+	    	else {
+				InputStream stream = classLoader.getResourceAsStream("../MSTAConfiguration.json");
+			    //System.out.println(stream);
+				if (stream == null) {
+				    System.out.println("MSTAConfiguration.json missing from WEB-INF folder");
+			    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
+				}
+				ByteArrayOutputStream result = new ByteArrayOutputStream();
+				byte[] buffer = new byte[2048];
+				try {
+					for (int length; (length = stream.read(buffer)) != -1; ) {
+					     result.write(buffer, 0, length);
+					}
+					strproperties = result.toString("UTF-8");
+				} catch (IOException e1) {
+				    System.out.println("MSTAConfiguration.json missing from WEB-INF folder");
+			    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
+				}	    	
+	    	}
 
 	    } catch (IOException  e) {
-		    System.out.println("property not found load from default");		    	
+		    System.out.println("MST-Auth property not found load from default");		    	
 			// get the json string from the WEB-INF directory			
 			InputStream stream = classLoader.getResourceAsStream("../MSTAConfiguration.json");
 		    //System.out.println(stream);
@@ -206,24 +216,26 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 			JSONObject r2sconifg =  new JSONObject(strproperties);
 			
 			// MSTA_URL is required if MSTA_DO_INIT is not 0
-			int URL_REQUIRED = 1;
 			if(r2sconifg.has("MSTA_DO_INIT")) {
-				MSTAUtils.MSTA_DO_INIT = r2sconifg.getInt("MSTA_DO_INIT");
-				if (MSTAUtils.MSTA_DO_INIT == 0) 
-					URL_REQUIRED = 0;
-			}
-			if(r2sconifg.has("MSTA_URL"))
-				MSTAUtils.MSTA_URL = r2sconifg.getString("MSTA_URL");
-			else {
-				if (URL_REQUIRED == 1) {
-				    System.out.println(MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": MSTA_URL missing MSTAConfiguration.json in WEB-INF folder");
-			    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": MSTA_URL missing MSTAConfiguration.json in WEB-INF folder"));		
+				MSTAUtils.MSTA_DO_INIT = r2sconifg.getString("MSTA_DO_INIT");
+				if (MSTAUtils.MSTA_DO_INIT.equals("O")) {
 				}
+				else if (MSTAUtils.MSTA_DO_INIT.equals("A")) {
+					MSTAUtils.MSTA_DO_INIT = r2sconifg.getString("MSTA_REST_URL");					
+				}
+				else if (MSTAUtils.MSTA_DO_INIT.equals("S")) {
+					MSTAUtils.MSTA_CONNECTION_URL = r2sconifg.getString("MSTA_CONNECTION_URL");
+									}
+			}
+			else {
+				    System.out.println("MSTA_URL missing MSTAConfiguration.json in WEB-INF folder");
+			    	throw(new NullPointerException ("MSTA_URL missing MSTAConfiguration.json in WEB-INF folder"));		
 			}
 			//
 			// we need cache if not from MST-AUTH server
 			//
-			if (URL_REQUIRED != 1) {	
+		    //System.out.println("what do we have if not O: " + MSTAUtils.MSTA_DO_INIT);
+			if (MSTAUtils.MSTA_DO_INIT.equals("O")) {	
 				int invalidconfig = 0;
 				if(!r2sconifg.has("MSTA_CONNECTION_TIMEOUT")) invalidconfig = 1; else
 					MSTA_CONNECTION_TIMEOUT = r2sconifg.getInt("MSTA_CONNECTION_TIMEOUT");
@@ -278,7 +290,7 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 			    InputStream stream2 = classLoader.getResourceAsStream("../privateKey.key");
 			    //System.out.println(stream2);
 				if (stream2 == null) {
-				    System.out.println("privateKey missing from WEB-INF folder");
+				    System.out.println("MST-Auth privateKey missing from WEB-INF folder");
 			    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
 				}
 				ObjectInputStream oin2 = new ObjectInputStream(stream2);
@@ -302,7 +314,7 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 				    System.out.println(MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": Information missing in MSTAConfiguration.json in WEB-INF folder");
 			    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": Information missing in MSTAConfiguration.json in WEB-INF folder"));		
 				}
-		    	System.out.println(MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": WEB-INF");
+		    	//System.out.println(MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": WEB-INF");
 			    //System.out.println(r2sconifg.toString());
 			}
 			else {
@@ -357,65 +369,9 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 			e.printStackTrace();
 		}	
 		
-		/////////////////////////////////////////
-		// temp cassandra stuff
-		CassandraCreate();
 	}
 
 	public void destroy() {
-		if ( CASSANDRA == 1 ) {
-			CASSANDRA_CLUSTER.close();	// not sure this does anything	
-		}
-	}
-	
-	public void CassandraInsert(String statement) {
-		if ( CASSANDRA == 1 ) {
-			Statement  st = new SimpleStatement(statement);
-			 //st.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
-			//System.out.println(st);			
-			if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
-			CASSANDRA_SESSION.execute(st);
-		}
-		
-	}
-
-	private void CassandraCreate() {
-		if ( CASSANDRA == 1 ) {
-			
-			/////////////////////////////////////////
-			// temp cassandra stuff
-			int tries = 3;
-			while (tries > 0)
-			{
-				try {
-					CASSANDRA_CLUSTER = Cluster.builder()
-							.addContactPoint(CASSANDRA_URL)
-							.withPort(CASSANDRA_PORT)
-	//						.withAuthProvider(new SigV4AuthProvider(CASSANDRA_AUTH))
-	//		                .withSSL()
-	//						.withCredentials(CASSANDRA_USER, CASSANDRA_PASSWORD)
-							.build();
-	
-					CASSANDRA_SESSION = CASSANDRA_CLUSTER.connect();
-					CASSANDRA_SESSION.execute("USE mstauth");
-					return;
-				}
-				catch(Exception e) {
-					tries --;
-					  System.out.println("MST-Auth" + e.toString());
-					  if (tries > 0) {
-						  try 
-						  {
-							  TimeUnit.MILLISECONDS.sleep(5000);	// add a little wait, to see if root will end
-						  }
-						  catch (JSONException | InterruptedException ie) 
-						  {
-							  //throw new MSTAException(MyMicroserviceName + ":" + MyMicroserviceID + ":" + MyInstanceID + ": MST-Auth Cassandra InterruptedException " + ie.toString());
-						  }						  
-					  }
-				}
-			}
-		}
 	}
 
 	// *******************************************************************
@@ -431,7 +387,7 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, this);
+		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
 		try {
 			wrapper.doGet(request, response);
 		} catch (IOException e) {
@@ -443,7 +399,7 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, this);
+		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
 		try {
 			wrapper.doPost(request, response);
 		} catch (IOException e) {
@@ -454,7 +410,7 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 
 
 	protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, this);
+		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
 		try {
 			wrapper.doPut(request, response);
 		} catch (IOException e) {
@@ -465,7 +421,7 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 
 
 	protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, this);
+		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
 		try {
 			wrapper.doDelete(request, response);
 		} catch (IOException e) {
@@ -477,4 +433,9 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 		}
 	}
 	
+//	@Override 
+//	public void CassandraLog(String str) {
+//		System.out.println("OYClient " + str);
+
+//	}
 }

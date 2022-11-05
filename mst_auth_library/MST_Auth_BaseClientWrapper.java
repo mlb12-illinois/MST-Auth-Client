@@ -30,16 +30,14 @@ public class MST_Auth_BaseClientWrapper {
 	protected HttpRequest.Builder mstauthbuilder;
 
 	public MST_Auth_BaseClientWrapper(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES) {
-	MSTAUtils = parmMSTAUtils;
-	MSTA_CONNECTION_TIMEOUT = parmMSTA_CONNECTION_TIMEOUT;;
-	MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
-	MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
-	MSTA_TRIES =  parmMSTA_TRIES;	
-	
-	MST_Client = new MST_Auth_Client();
-	MST_Client.SetLibrary(this);
+		MSTAUtils = parmMSTAUtils;
+		MSTA_CONNECTION_TIMEOUT = parmMSTA_CONNECTION_TIMEOUT;;
+		MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
+		MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
+		MSTA_TRIES =  parmMSTA_TRIES;		
+		MST_Client = new MST_Auth_Client();
+		MST_Client.SetLibrary(this);
 	}
-
 	
 	public void doGet(HttpServletRequest request, HttpServletResponse response, String decryptedbody) throws IOException, MSTAException {
 		    mstauthbuilder = HttpRequest.newBuilder();
@@ -57,7 +55,7 @@ public class MST_Auth_BaseClientWrapper {
         	mstauthbuilder = HttpRequest.newBuilder();
 			MST_Client.doDelete(request, response, null);			
 	}
-	public void SetMicroservice(String microservicename) {
+	public void SetMicroservice(String microservicename) throws MSTAException {
 		//RequestURI = (microservicename);
 		 //System.out.println("SetMicroservice");
 
@@ -98,7 +96,7 @@ public class MST_Auth_BaseClientWrapper {
 	    //List<List<String>> listCopy = new ArrayList<List<String>>(RequestHeaders);
 	  //RequestHeaders = new ArrayList<>();
 
-	  MST_Auth_SendThread T1 = new MST_Auth_SendThread(phaser, mstauthbuilder, this);
+	  MST_Auth_SendThread T1 = new MST_Auth_SendThread(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, phaser, mstauthbuilder, this);
 	  Thread t = new Thread (T1, "SendThread");					  
       t.start();
 	  mstauthbuilder = HttpRequest.newBuilder();
@@ -152,6 +150,8 @@ public class MST_Auth_BaseClientWrapper {
 			  }
 			  else {
 				  // 200 so good
+				  //System.out.println("200 so good");
+				  ///System.out.println(mstresponse.body().toString());
 				  return mstresponse;
 			  } 
 		  }
@@ -173,4 +173,5 @@ public class MST_Auth_BaseClientWrapper {
 	  }
 	  return null;
 	}
+	public void Audit(String str) {}
 }

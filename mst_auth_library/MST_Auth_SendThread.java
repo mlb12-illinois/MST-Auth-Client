@@ -29,10 +29,26 @@ public class MST_Auth_SendThread implements  Runnable {
 	protected MST_Auth_BaseClientWrapper ServletReturn;
 	HttpRequest.Builder mstauthbuilder = null;
 
-	MST_Auth_SendThread(Phaser parmphaser, HttpRequest.Builder parmmstauthbuilder, MST_Auth_BaseClientWrapper paramServletReturn)  {
+	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, Phaser parmphaser, HttpRequest.Builder parmmstauthbuilder, MST_Auth_BaseClientWrapper paramServletReturn)  {
 		mstauthbuilder = parmmstauthbuilder;
 		phaser = parmphaser;
 		ServletReturn = paramServletReturn;
+		MSTAUtils = parmMSTAUtils;
+		MSTA_CONNECTION_TIMEOUT = parmMSTA_CONNECTION_TIMEOUT;;
+		MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
+		MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
+		MSTA_TRIES =  parmMSTA_TRIES;	
+	}
+	
+	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, HttpRequest.Builder parmmstauthbuilder)  {
+		mstauthbuilder = parmmstauthbuilder;
+		phaser = null;
+		ServletReturn = null;
+		MSTAUtils = parmMSTAUtils;
+		MSTA_CONNECTION_TIMEOUT = parmMSTA_CONNECTION_TIMEOUT;;
+		MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
+		MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
+		MSTA_TRIES =  parmMSTA_TRIES;	
 	}
 	
     public void run(){
@@ -67,8 +83,8 @@ public class MST_Auth_SendThread implements  Runnable {
 				  //phaser.arrive(); 
 				  retcode = mstresponse.statusCode();
 				  if (retcode != 200 ) {
-					  errorstring = ( "Response: " + mstresponse.body() + "; retcode: " + retcode);
-					  System.out.println(errorstring );
+					  errorstring = ( "Sendthread Response: " + mstresponse.body() + "; retcode: " + retcode);
+					  //System.out.println(errorstring );
 					  mytries--;
 					  if (mytries > 0) {
 						  try {
@@ -78,13 +94,17 @@ public class MST_Auth_SendThread implements  Runnable {
 							  throw(new MSTAException (": InterruptedException" + ie));		
 						  }						  
 					  }
-					  ServletReturn.callbackResponse(mstresponse);
+					  else {
+						  if ( ServletReturn != null) ServletReturn.callbackResponse(null);
+						  return;
+					  }
 					  //phaser.arriveAndDeregister();
-					  return;
 				  }
 				  else {
+					  //errorstring = ( "Sendthread Response: " + retcode);
+					  //System.out.println(errorstring );
 					  // 200 so good
-					  ServletReturn.callbackResponse(mstresponse);
+					  if ( ServletReturn != null) ServletReturn.callbackResponse(mstresponse);
 					  //phaser.arriveAndDeregister();
 					  return;
 				  } 
@@ -103,12 +123,16 @@ public class MST_Auth_SendThread implements  Runnable {
 						  System.out.println(errorstring);
 					  }
 				  }
+				  else {
+					  if ( ServletReturn != null) ServletReturn.callbackResponse(null );
+					  return;
+				  }
 			  }	   
 		  }
       }
 	  finally { // Very important to wrap
-		  phaser.arriveAndDeregister();
+		  if (phaser != null) phaser.arriveAndDeregister();
 	  }
-	  ServletReturn.callbackResponse(null);
+	  //
     }
 }

@@ -14,8 +14,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class MST_Auth_Utils {
-	public int MSTA_DO_INIT;
-	public  String MSTA_URL = null;
+	public  String MSTA_DO_INIT;
+	public  String MSTA_REST_URL = null;
+	public  String MSTA_CONNECTION_URL = null;
 	public  String GraphUID = null;
 	public  String MyMicroserviceName = null;
 	public  String MyMicroserviceID = null;
@@ -60,9 +61,9 @@ public class MST_Auth_Utils {
 	    		// loop through authorizations
 	    	    for (int y = 0; y < Auths.length(); y++) { 
 	    	    	// auth must equal type 
-	    	    	if (Auths.get(y).equals(type)) authorized = 1;
+	    	    	if (Auths.get(y).equals(type) || Auths.get(y).equals("*")) authorized = 1;
 	    	    	// or equal * if RECEIVE
-	    	    	else if (direction.equals("RECEIVE") && Auths.get(y).equals("*")) authorized = 1;	    	    		
+	    	    	//else if (direction.equals("RECEIVE") && Auths.get(y).equals("*")) authorized = 1;	    	    		
 	    	    }
 	    	}
 	    	
