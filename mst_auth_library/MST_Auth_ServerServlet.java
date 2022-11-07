@@ -83,10 +83,11 @@ import com.datastax.driver.core.Statement;
 
 public class MST_Auth_ServerServlet extends MST_Auth_Servlet {
 	private static final  int CASSANDRA = 1;	// set to 0 to disable cassandra
-	public static Cluster CASSANDRA_CLUSTER = null;
-	private Session CASSANDRA_SESSION = null;
-    private static String CASSANDRA_URL = "127.0.0.1";
-	private static Integer CASSANDRA_PORT = 9042;
+	//public static Cluster CASSANDRA_CLUSTER = null;
+	//private Session CASSANDRA_SESSION = null;
+    //private static String CASSANDRA_URL = "127.0.0.1";
+	//private static Integer CASSANDRA_PORT = 9042;
+	
 	//private static String CASSANDRA_AUTH = "";
 	//private static String CASSANDRA_USER = ""; 
 	//private static String CASSANDRA_PASSWORD = ""; 
@@ -126,15 +127,15 @@ public class MST_Auth_ServerServlet extends MST_Auth_Servlet {
 	public void destroy() {
 		super.destroy();
 		if ( CASSANDRA == 1 ) {
-			CASSANDRA_CLUSTER.close();	// not sure this does anything	
+			//CASSANDRA_CLUSTER.close();	// not sure this does anything	
 		}
 	}
 	
 	public void CassandraInsert(String statement) {
 		if ( CASSANDRA == 1 ) {
-			Statement  st = new SimpleStatement(statement);
-			if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
-			CASSANDRA_SESSION.execute(st);
+			//Statement  st = new SimpleStatement(statement);
+			//if (CASSANDRA_CLUSTER == null || CASSANDRA_CLUSTER.isClosed()) CassandraCreate();		
+			//CASSANDRA_SESSION.execute(st);
 		}
 		
 	}
@@ -146,6 +147,7 @@ public class MST_Auth_ServerServlet extends MST_Auth_Servlet {
 			while (tries > 0)
 			{
 				try {
+					/*
 					CASSANDRA_CLUSTER = Cluster.builder()
 							.addContactPoint(CASSANDRA_URL)
 							.withPort(CASSANDRA_PORT)
@@ -156,6 +158,7 @@ public class MST_Auth_ServerServlet extends MST_Auth_Servlet {
 	
 					CASSANDRA_SESSION = CASSANDRA_CLUSTER.connect();
 					CASSANDRA_SESSION.execute("USE mstauth");
+					*/
 					return;
 				}
 				catch(Exception e) {
