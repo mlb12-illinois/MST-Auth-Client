@@ -52,8 +52,8 @@ import com.datastax.driver.core.Statement;
 import mst_auth_client.MST_Auth_Client;
 
 public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
-	private String encryptionlevel = "BODY";	// NONE BODY HEADER FULL
-	private String mode = "ASYNCH";	// OFFLINE ASYNCH SYNCH
+	private String encryptionlevel = "NONE";	// NONE BODY HEADER FULL
+	private String mode = "OFFLINE";	// OFFLINE ASYNCH SYNCH
 	
 	private String InboundMethod = null;
 	private String OutboundMethod = null;
@@ -378,7 +378,7 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 				    Cipher cipher6 = Cipher.getInstance("RSA/ECB/OAEPWithSHA1AndMGF1Padding");   
 				    cipher6.init(Cipher.ENCRYPT_MODE, graphkey); 				    
 				    byte[] rawData = tempsecret.getEncoded();
-				    String teststring = Base64.getEncoder().encodeToString(rawData);
+				    String teststring = new String(Base64.getEncoder().encode(rawData));
 				    //System.out.println("OY666 : " + teststring);
 				    byte[] testarray =  cipher6.doFinal(teststring.getBytes());
 				    //System.out.println(testarray.length);
@@ -393,11 +393,17 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 					    byte[] outarray =  encryptCipher.doFinal(OutboundBody.getBytes());
 					    byte[] encodedoutarray = Base64.getEncoder().encode(outarray);
 						OutboundBody =  new String(encodedoutarray);
+						
+					    byte[] encodedoutarray2 = Base64.getEncoder().encode(newheader.getBytes());
+					    newheader = new String(encodedoutarray2);						
 					}
 					else if (graphencryption.equals("HEADER")) {
 					    byte[] outarray =  encryptCipher.doFinal(newheader.getBytes());
 					    byte[] encodedoutarray = Base64.getEncoder().encode(outarray);
 					    newheader = new String(encodedoutarray);
+					    
+					    byte[] encodedoutarray2 = Base64.getEncoder().encode(OutboundBody.getBytes());
+						OutboundBody =  new String(encodedoutarray2);
 					}
 					else if (graphencryption.equals("FULL")) {
 					    byte[] outarray =  encryptCipher.doFinal(OutboundBody.getBytes());
@@ -407,7 +413,14 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 					    byte[] outarray2 =  encryptCipher.doFinal(newheader.getBytes());
 					    byte[] encodedoutarray2 = Base64.getEncoder().encode(outarray2);
 					    newheader = new String(encodedoutarray2);
-					}					
+					}		
+					else {
+					    byte[] encodedoutarray = Base64.getEncoder().encode(OutboundBody.getBytes());
+						OutboundBody =  new String(encodedoutarray);
+						
+					    byte[] encodedoutarray2 = Base64.getEncoder().encode(newheader.getBytes());
+					    newheader = new String(encodedoutarray2);						
+					}
 		    	}		
 		    }
 		    else {
@@ -438,17 +451,28 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 			//System.out.println("OY0");
 		    //System.out.println("Hashed Outbound: " + stringHash2);
 			//System.out.println(stringHash.length());
+		    //System.out.println("Headaer Outbound: " + newheader);
+		    //System.out.println("Hashed Outbound: " + stringHash2);
 	
 			PKCS8EncodedKeySpec ks2 =  new PKCS8EncodedKeySpec(MSTAUtils.decryptedprivate);
 		    KeyFactory kf2 = KeyFactory.getInstance("RSA");
 		    PrivateKey privateKey = kf2.generatePrivate(ks2);
-			Signature sign = Signature.getInstance("SHA256withRSA");
-			sign.initSign((java.security.PrivateKey) privateKey);
-			sign.update(stringHash2.getBytes(), 0,stringHash2.length() );
-			byte[] signature = sign.sign();
-			String s = Base64.getEncoder().encodeToString(signature);			  
-			mstauthbuilder.header("MST-AUTH-Signature", s);
-		    
+			Signature sign2 = Signature.getInstance("SHA256withRSA");
+			sign2.initSign(privateKey);
+			sign2.update(stringHash2.getBytes(), 0, stringHash2.getBytes().length );
+			byte[] signature = sign2.sign();
+			String s = new String(Base64.getEncoder().encode(signature));			  
+			mstauthbuilder.header("MST-AUTH-Signature", s);		    
+/*
+		    X509EncodedKeySpec ks3 =  new X509EncodedKeySpec(MSTAUtils.decodepublic);
+		    KeyFactory kf3 = KeyFactory.getInstance("RSA");
+		    PublicKey publicKey = kf3.generatePublic(ks3);
+		    Signature sign3 = Signature.getInstance("SHA256withRSA");
+			sign3.initVerify(publicKey);
+			sign3.update(stringHash2.getBytes(), 0, stringHash2.getBytes().length );
+			boolean verify = sign3.verify(signature);	    
+			if (verify == false) System.out.println("OY OY OY");	
+*/		    
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();
 	    	throw(new MSTAException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": NoSuchAlgorithmException" + e));		
@@ -508,6 +532,7 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 			// there is a header
 			// first things first, signature is required
 			String graphensignature = request.getHeader("MST-AUTH-Signature");
+		    //System.out.println("graphensignature Inbound: " + graphensignature);
 			if (graphensignature == null) 
 	    		throw(new MSTAException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": Non MST-AUTH rest calls not avalable"));		
 		    byte[] signature = Base64.getDecoder().decode(graphensignature);
@@ -521,6 +546,7 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 				messageDigest.update(mstaheader.getBytes());
 			    //messageDigest.update(mstaheader.getBytes());
 			    String stringHash = new String(messageDigest.digest());
+			    //System.out.println("Headaer Inbound: " + mstaheader);
 			    //System.out.println("Hashed Inbound: " + stringHash);
 			    
 			    Signature sign;
@@ -528,7 +554,7 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 			    KeyFactory kf3 = KeyFactory.getInstance("RSA");
 			    PublicKey publicKey = kf3.generatePublic(ks3);
 			    sign = Signature.getInstance("SHA256withRSA");
-				sign.initVerify((PublicKey) publicKey);
+				sign.initVerify(publicKey);
 				sign.update(stringHash.getBytes(), 0, stringHash.getBytes().length );
 				boolean verify = sign.verify(signature);
 				//System.out.println("Signature " +  (verify ? "OK" : "Not OK"));	
@@ -563,25 +589,25 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 				    Cipher encryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
 				    encryptCipher.init(Cipher.DECRYPT_MODE, (msgsecret));
 				    
+				    byte[] decodedstr1 = (Base64.getDecoder().decode(newbody.getBytes()));
+				    byte[] decodedstr2 = (Base64.getDecoder().decode(mstaheader.getBytes()));
+				    
 					if (graphencryptiontype.equals("BODY")) {
-						byte[] encodedstr = newbody.getBytes();			    
-					    byte[] decodedstr = (Base64.getDecoder().decode(encodedstr));
-						newbody =  new String(encryptCipher.doFinal(decodedstr));
+						newbody =  new String(encryptCipher.doFinal(decodedstr1));
+						mstaheader =  new String(decodedstr2);						
 					}
 					else if (graphencryptiontype.equals("HEADER")) {
-						byte[] encodedstr = mstaheader.getBytes();			    
-					    byte[] decodedstr = (Base64.getDecoder().decode(encodedstr));
-						mstaheader =  new String(encryptCipher.doFinal(decodedstr));
+						newbody =  new String(decodedstr1);						
+						mstaheader =  new String(encryptCipher.doFinal(decodedstr2));
 					}
 					else if (graphencryptiontype.equals("FULL")) {
-						byte[] encodedstr = newbody.getBytes();			    
-					    byte[] decodedstr = (Base64.getDecoder().decode(encodedstr));
-						newbody =  new String(encryptCipher.doFinal(decodedstr));
-						
-						byte[] encodedstr2 = mstaheader.getBytes();			    
-					    byte[] decodedstr2 = (Base64.getDecoder().decode(encodedstr2));
+						newbody =  new String(encryptCipher.doFinal(decodedstr1));						
 						mstaheader =  new String(encryptCipher.doFinal(decodedstr2));
 					} 
+					else {
+						newbody =  new String(decodedstr1);						
+						mstaheader =  new String(decodedstr2);						
+					}
 			    }
 
 			} catch (InvalidKeyException e) {

@@ -54,7 +54,8 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 		} catch (MSTAException e) {
 			e.printStackTrace();
 			MSTAUtils.HandleException(e.toString());
-		}			
+		}	
+		wrapper = null;
 	}
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
@@ -68,6 +69,7 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 			e.printStackTrace();
 			MSTAUtils.HandleException(e.toString());
 		}			
+		wrapper = null;
 	}
 	protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
@@ -81,6 +83,7 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 			e.printStackTrace();
 			MSTAUtils.HandleException(e.toString());
 		}			
+		wrapper = null;
 	}
 	protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
@@ -94,6 +97,7 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 			e.printStackTrace();
 			MSTAUtils.HandleException(e.toString());
 		}			
+		wrapper = null;
 	}
 	
 //	public void CassandraLog(String str) {
