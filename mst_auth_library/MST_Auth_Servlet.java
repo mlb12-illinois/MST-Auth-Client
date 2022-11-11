@@ -1,8 +1,5 @@
 package mst_auth_library;
 
-import mst_auth_client.MST_Auth_Client;
-//import software.aws.mcs.auth.SigV4AuthProvider;
-
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -62,24 +59,17 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
 
-
-/**
- * mst_auth_servlet is the client side library for the MST-Auth platform
- * 
- * Implements (forwards to the client class):
- * 	  init
- *    doGet
- *    doPut
- *    doPost
- *    doDelete
- * 
- * @author mlbernardoni
- *
- */
-
-/**
- * Servlet implementation class mst_auth_servlet
- */
+// *******************************************************************
+// *******************************************************************
+// *******************************************************************
+// 
+// This is the class who's only function is the start up handshake
+// with the MST-Auth Server
+//
+//
+// *******************************************************************
+// *******************************************************************
+// *******************************************************************
 
 public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 	//private HttpRequest.Builder mstauthbuilder;
@@ -87,7 +77,6 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 	private int NOPROPERTY = 1;
 	
 
-	private MST_Auth_Client MST_Client;       
     public MST_Auth_Servlet() {
         super();
     }
@@ -95,8 +84,6 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 	// *******************************************************************
 	//
     // init
-    //
-    // create client
     //
 	// get config 
 	//		from webapp directory (in summary we need at least (1) MSTA_URL or (2) everything (including DO_INIT set to 0)
@@ -117,7 +104,6 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 	public void init(ServletConfig config) throws ServletException {
 
 		super.init(config);
-		MST_Client = new MST_Auth_Client();
 		
 		//
 		// initialize some variables
@@ -351,91 +337,14 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 			    //System.out.println(jsonobj.toString());
 			}
 		} 
-		catch (IOException e) {
+		catch (Exception e) {
 			System.out.println(e.toString());
-		} catch (ClassNotFoundException e) {
-			e.printStackTrace();
-		} catch (NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		} catch (NoSuchPaddingException e) {
-			e.printStackTrace();
-		} catch (InvalidKeyException e) {
-			e.printStackTrace();
-		} catch (IllegalBlockSizeException e) {
-			e.printStackTrace();
-		} catch (BadPaddingException e) {
-			e.printStackTrace();
-		} catch (InvalidKeySpecException e) {
-			e.printStackTrace();
 		}	
 		
 	}
 
-	public void destroy() {
+	public void AuthCallbackResponse(HttpResponse<String> mstresponse) {
+		System.out.println("AuthCallbackResponse");
 	}
 
-	// *******************************************************************
-	//
-	// the rest calls RECEIVE routines
-	//
-	// we save the methods (get, post etc.)
-	// check the header (all things MST-Auth receiving)
-	// pass to the client if all things are good with the check
-	// TO DO ADD OPTIONAL ENCRYPTION ON ReSPONSE
-	// *******************************************************************
-	
-
-	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
-		try {
-			wrapper.doGet(request, response);
-		} catch (IOException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		}
-	}
-
-
-	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
-		try {
-			wrapper.doPost(request, response);
-		} catch (IOException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		}			
-	}
-
-
-	protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
-		try {
-			wrapper.doPut(request, response);
-		} catch (IOException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		}			
-	}
-
-
-	protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
-		try {
-			wrapper.doDelete(request, response);
-		} catch (IOException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		} catch (InvalidKeySpecException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		}
-	}
-	
-//	@Override 
-//	public void CassandraLog(String str) {
-//		System.out.println("OYClient " + str);
-
-//	}
 }

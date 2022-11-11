@@ -16,20 +16,18 @@ import java.util.concurrent.TimeUnit;
 
 import org.json.JSONException;
 
-import mst_auth_client.MST_Auth_Client;
-
 public class MST_Auth_SendThread implements  Runnable { 
-	protected Phaser phaser;
-	protected MST_Auth_Client MST_Client;
+	protected Phaser phaser = null;
 	protected MST_Auth_Utils MSTAUtils;
 	protected int MSTA_CONNECTION_TIMEOUT = 10000;;
 	protected int MSTA_RESPONSE_TIMEOUT = 10000;
 	protected int MSTA_TIMEOUT_WAIT = 3000;
 	protected int MSTA_TRIES =  3;	
-	protected MST_Auth_BaseClientWrapper ServletReturn;
+	protected MST_Auth_BaseClientWrapper ServletReturn = null;
+	protected MST_Auth_Servlet AuthReturn = null;
 	HttpRequest.Builder mstauthbuilder = null;
 
-	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, Phaser parmphaser, HttpRequest.Builder parmmstauthbuilder, MST_Auth_BaseClientWrapper paramServletReturn)  {
+	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, HttpRequest.Builder parmmstauthbuilder, MST_Auth_BaseClientWrapper paramServletReturn, Phaser parmphaser)  {
 		mstauthbuilder = parmmstauthbuilder;
 		phaser = parmphaser;
 		ServletReturn = paramServletReturn;
@@ -40,15 +38,14 @@ public class MST_Auth_SendThread implements  Runnable {
 		MSTA_TRIES =  parmMSTA_TRIES;	
 	}
 	
-	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, HttpRequest.Builder parmmstauthbuilder)  {
+	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, HttpRequest.Builder parmmstauthbuilder, MST_Auth_Servlet parmAuthReturn)  {
 		mstauthbuilder = parmmstauthbuilder;
-		phaser = null;
-		ServletReturn = null;
 		MSTAUtils = parmMSTAUtils;
 		MSTA_CONNECTION_TIMEOUT = parmMSTA_CONNECTION_TIMEOUT;;
 		MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
 		MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
 		MSTA_TRIES =  parmMSTA_TRIES;	
+		AuthReturn = parmAuthReturn;
 	}
 	
     public void run(){
@@ -105,6 +102,7 @@ public class MST_Auth_SendThread implements  Runnable {
 					  //System.out.println(errorstring );
 					  // 200 so good
 					  if ( ServletReturn != null) ServletReturn.callbackResponse(mstresponse);
+					  if ( AuthReturn != null) AuthReturn.AuthCallbackResponse(mstresponse);
 					  //phaser.arriveAndDeregister();
 					  return;
 				  } 
@@ -125,6 +123,7 @@ public class MST_Auth_SendThread implements  Runnable {
 				  }
 				  else {
 					  if ( ServletReturn != null) ServletReturn.callbackResponse(null );
+					  if ( AuthReturn != null) AuthReturn.AuthCallbackResponse(null );
 					  return;
 				  }
 			  }	   

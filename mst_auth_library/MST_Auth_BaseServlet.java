@@ -11,7 +11,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Phaser;
+import java.util.concurrent.Semaphore;
+//import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletConfig;
@@ -22,36 +23,57 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.json.JSONException;
 
-//import mst_auth_client.MST_Auth_Client;
+//*******************************************************************
+//*******************************************************************
+//*******************************************************************
+//
+//This is the class who's main function is to:
+//	Initialize the MSTAUtils function
+//
+//	Provide the GetService function (the clients servlet only needs to 
+//		override this to establish the hooks between the clients
+//		microservice and the framework
+//
+//Also at doGet etc, creates the base verison of the wrapper 
+//	MST_Auth_BaseClientWrapper
+//  Used by MST_Auth_BaseClientWrapper 
+//		to create microservice calls without MST-Auth
+//		useful if a microservice has to hit a generic webservice
+//
+//
+//*******************************************************************
+//*******************************************************************
+//*******************************************************************
 
 public class MST_Auth_BaseServlet extends HttpServlet {
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 	protected MST_Auth_Utils MSTAUtils = null;
 	protected int MSTA_CONNECTION_TIMEOUT = 100000;;
 	protected int MSTA_RESPONSE_TIMEOUT = 100000;
 	protected int MSTA_TIMEOUT_WAIT = 3000;
 	protected int MSTA_TRIES =  3;	
-	
-	protected Phaser phaser = null;
-	//protected HttpRequest.Builder mstauthbuilder;
 
 	public void init(ServletConfig config) throws ServletException {
 		MSTAUtils = new MST_Auth_Utils();		
+		MSTAUtils.listsemaphore = new Semaphore(1);	
 	}
 	public void destroy() {
 	}
+
+	//*******************************************************************
+	// the servlet in the clients code just has to override this
+	//*******************************************************************
+	public MST_Auth_Microservice  GetService () {		// *****  override this
+		return new MST_Auth_Microservice();			
+	}
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        //System.out.println(" MST_Auth_BaseServlet doGet ");
 		
 		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
+		wrapper.SetClient(GetService());
 		try {
-			wrapper.doGet(request, response, null);
-		} catch (IOException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		} catch (MSTAException e) {
+			wrapper.doGet(request, response);
+		} catch (Exception e) {
 			e.printStackTrace();
 			MSTAUtils.HandleException(e.toString());
 		}	
@@ -60,12 +82,10 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
 		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
+		wrapper.SetClient(GetService());
 		try {
-			wrapper.doPost(request, response, null);
-		} catch (IOException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		} catch (MSTAException e) {
+			wrapper.doPost(request, response);
+		} catch (Exception e) {
 			e.printStackTrace();
 			MSTAUtils.HandleException(e.toString());
 		}			
@@ -74,12 +94,10 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 	protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
 		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
+		wrapper.SetClient(GetService());
 		try {
-			wrapper.doPut(request, response, null);
-		} catch (IOException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		} catch (MSTAException e) {
+			wrapper.doPut(request, response);
+		} catch (Exception e) {
 			e.printStackTrace();
 			MSTAUtils.HandleException(e.toString());
 		}			
@@ -88,21 +106,15 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 	protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
 		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
+		wrapper.SetClient(GetService());
 		try {
-			wrapper.doPut(request, response, null);
-		} catch (IOException e) {
-			e.printStackTrace();
-			MSTAUtils.HandleException(e.toString());
-		} catch (MSTAException e) {
+			wrapper.doPut(request, response);
+		} catch (Exception e) {
 			e.printStackTrace();
 			MSTAUtils.HandleException(e.toString());
 		}			
 		wrapper = null;
 	}
 	
-//	public void CassandraLog(String str) {
-//		System.out.println("OYBase " + str);
-
-//	}
 }
 

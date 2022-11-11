@@ -16,10 +16,24 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.json.JSONException;
 
-import mst_auth_client.MST_Auth_Client;
+//*******************************************************************
+//*******************************************************************
+//*******************************************************************
+//
+//This is the baseClient Wrapper
+//
+// all sends are done here (derived classes call this)
+//
+// Also at doGet etc, creates the base verison of the wrapper 
+//		to create microservice calls without MST-Auth
+//		useful if a microservice has to hit a generic webservice
+//
+//*******************************************************************
+//*******************************************************************
+//*******************************************************************
 
 public class MST_Auth_BaseClientWrapper {
-	protected MST_Auth_Client MST_Client;
+	protected MST_Auth_Microservice MST_Client;
 	protected MST_Auth_Utils MSTAUtils;
 	protected int MSTA_CONNECTION_TIMEOUT;
 	protected int MSTA_RESPONSE_TIMEOUT;
@@ -35,68 +49,63 @@ public class MST_Auth_BaseClientWrapper {
 		MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
 		MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
 		MSTA_TRIES =  parmMSTA_TRIES;		
-		MST_Client = new MST_Auth_Client();
+	}
+	
+	public void SetClient(MST_Auth_Microservice client) {
+		MST_Client = client;
 		MST_Client.SetLibrary(this);
 	}
 	
-	public void doGet(HttpServletRequest request, HttpServletResponse response, String decryptedbody) throws IOException, MSTAException {
-		    mstauthbuilder = HttpRequest.newBuilder();
+	public void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException, MSTAException {
 			MST_Client.doGet(request, response, null);			
 	}
-	public void doPost(HttpServletRequest request, HttpServletResponse response, String decryptedbody) throws IOException, MSTAException  {
-	        mstauthbuilder = HttpRequest.newBuilder();
+	public void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException, MSTAException  {
 			MST_Client.doPost(request, response, null);			
 	}
-	public void doPut(HttpServletRequest request, HttpServletResponse response, String decryptedbody) throws IOException, MSTAException  {
-        	mstauthbuilder = HttpRequest.newBuilder();
+	public void doPut(HttpServletRequest request, HttpServletResponse response) throws IOException, MSTAException  {
 			MST_Client.doPut(request, response, null);			
 	}
-	public void doDelete(HttpServletRequest request, HttpServletResponse response, String decryptedbody) throws IOException, MSTAException  {
-        	mstauthbuilder = HttpRequest.newBuilder();
+	public void doDelete(HttpServletRequest request, HttpServletResponse response) throws IOException, MSTAException  {
 			MST_Client.doDelete(request, response, null);			
 	}
 	public void SetMicroservice(String microservicename) throws MSTAException {
-		//RequestURI = (microservicename);
-		 //System.out.println("SetMicroservice");
-
 		try {
+		    mstauthbuilder = HttpRequest.newBuilder();
 			mstauthbuilder
 				.uri(new URI(microservicename))
 				.timeout(Duration.ofMillis(MSTA_RESPONSE_TIMEOUT));
 		} 
-		catch (URISyntaxException e) {
+		catch (Exception e) {
 			e.printStackTrace();
+			MSTAUtils.HandleException(e.toString());
 		}
 
 	}
 	public void SetMethodWithBodyString(String method, String body ) throws MSTAException {	
-		 //System.out.println("SetMethodWithBodyString");
-		//RequestMethod = (method);
-		//RequestBody = (body);
 		mstauthbuilder.method(method, HttpRequest.BodyPublishers.ofString(body));		
 	}
 	public void SetHeader(String name, String value ) {	
-		 //System.out.println("SetHeader");
-		//List<String> templist = new ArrayList<>();
-		//templist.add(name);
-		//templist.add(value);
-		//RequestHeaders.add(templist);
-		
 		mstauthbuilder.header(name, value);	// example mstauthbuilder.header("Content-Type", "application/json; utf-8");
 	}
+	// *******************************************************************
+	// *******************************************************************
+	// *******************************************************************
+	//
+	//	Outbound stuff (used by all classes, including derived)
+	//
+	// *******************************************************************
+	// *******************************************************************
+	// *******************************************************************
+
 	public void WaitA() {	
-		//System.out.println("Entering WaitA");
 		phaser.arriveAndAwaitAdvance();
-		//System.out.println("Leaving WaitA");
 	}
 	
 	public void SendRequestA() throws MSTAException {	
 	  if (phaser == null) phaser = new Phaser(1);
 	  phaser.register();	
-	    //List<List<String>> listCopy = new ArrayList<List<String>>(RequestHeaders);
-	  //RequestHeaders = new ArrayList<>();
 
-	  MST_Auth_SendThread T1 = new MST_Auth_SendThread(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, phaser, mstauthbuilder, this);
+	  MST_Auth_SendThread T1 = new MST_Auth_SendThread(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, mstauthbuilder, this, phaser);
 	  Thread t = new Thread (T1, "SendThread");					  
       t.start();
 	  mstauthbuilder = HttpRequest.newBuilder();
@@ -108,7 +117,6 @@ public class MST_Auth_BaseClientWrapper {
 	}
 	
 	public HttpResponse<String> SendRequest() throws MSTAException {	
-	  //System.out.println("SendRequest");
 	  HttpRequest mstrequest = mstauthbuilder.build();
 	  
 	  // config the client
@@ -116,7 +124,6 @@ public class MST_Auth_BaseClientWrapper {
 		      .connectTimeout(Duration.ofMillis(MSTA_CONNECTION_TIMEOUT))	// time out to connect
 		      .build();
 	  mstauthbuilder = HttpRequest.newBuilder();
-	  //System.out.println("built");
 
 	  // get ready for send
 	  int mytries = MSTA_TRIES;
@@ -173,5 +180,5 @@ public class MST_Auth_BaseClientWrapper {
 	  }
 	  return null;
 	}
-	public void Audit(String str) {}
+
 }

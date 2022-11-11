@@ -6,12 +6,31 @@ import java.security.PublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.LinkedHashMap;
+import java.util.concurrent.Semaphore;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+//*******************************************************************
+//*******************************************************************
+//*******************************************************************
+//
+// This is the main buffer for shared data
+//
+// It is created in MST_Auth_BaseServlet
+// But it is poplulated in MST_Auth_Servlet
+// 		which is all things data from MST-Auth Server
+//
+// Most of the data is fixed (strings and buffers(
+// however there is a listsemaphore that MUST be used if accessing
+//		any of the non static stuff (LinkedHashMap for now)
+//
+//*******************************************************************
+//*******************************************************************
+//*******************************************************************
 
 public class MST_Auth_Utils {
 	public  String MSTA_DO_INIT;
@@ -22,7 +41,9 @@ public class MST_Auth_Utils {
 	public  String MyMicroserviceID = null;
 	public  String MyInstanceID = null;
 	public  String MyURI = null;
+	
 	//the in memory hash map of all things MST-AUTH
+	public Semaphore listsemaphore;
 	public LinkedHashMap<String, JSONObject> graphname_to_auth = null;
 	public LinkedHashMap<String, PublicKey> graphname_to_public = null;
 	
