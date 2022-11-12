@@ -14,6 +14,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.net.http.WebSocket;
+import java.net.http.WebSocket.Listener;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.MessageDigest;
@@ -33,6 +35,8 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
 import javax.servlet.ServletException;
@@ -202,149 +206,175 @@ public class MST_Auth_Servlet extends MST_Auth_BaseServlet {
 			JSONObject r2sconifg =  new JSONObject(strproperties);
 			
 			// MSTA_URL is required if MSTA_DO_INIT is not 0
-			if(r2sconifg.has("MSTA_DO_INIT")) {
-				MSTAUtils.MSTA_DO_INIT = r2sconifg.getString("MSTA_DO_INIT");
-				if (MSTAUtils.MSTA_DO_INIT.equals("O")) {
-				}
-				else if (MSTAUtils.MSTA_DO_INIT.equals("A")) {
-					MSTAUtils.MSTA_DO_INIT = r2sconifg.getString("MSTA_REST_URL");					
-				}
-				else if (MSTAUtils.MSTA_DO_INIT.equals("S")) {
-					MSTAUtils.MSTA_CONNECTION_URL = r2sconifg.getString("MSTA_CONNECTION_URL");
-									}
-			}
-			else {
-				    System.out.println("MSTA_URL missing MSTAConfiguration.json in WEB-INF folder");
-			    	throw(new NullPointerException ("MSTA_URL missing MSTAConfiguration.json in WEB-INF folder"));		
-			}
+			if(!r2sconifg.has("MSTA_DO_INIT")) throw(new Exception ("MSTA_URL missing MSTAConfiguration.json in WEB-INF folder"));	
 			//
 			// we need cache if not from MST-AUTH server
 			//
 		    //System.out.println("what do we have if not O: " + MSTAUtils.MSTA_DO_INIT);
+			MSTAUtils.MSTA_DO_INIT = r2sconifg.getString("MSTA_DO_INIT");
+			
 			if (MSTAUtils.MSTA_DO_INIT.equals("O")) {	
-				int invalidconfig = 0;
-				if(!r2sconifg.has("MSTA_CONNECTION_TIMEOUT")) invalidconfig = 1; else
-					MSTA_CONNECTION_TIMEOUT = r2sconifg.getInt("MSTA_CONNECTION_TIMEOUT");
-				if(!r2sconifg.has("MSTA_RESPONSE_TIMEOUT")) invalidconfig = 1; else
-					MSTA_RESPONSE_TIMEOUT = r2sconifg.getInt("MSTA_RESPONSE_TIMEOUT");
-				if(!r2sconifg.has("MSTA_TIMEOUT_WAIT")) invalidconfig = 1; else
-					MSTA_TIMEOUT_WAIT = r2sconifg.getInt("MSTA_TIMEOUT_WAIT");
-				if(!r2sconifg.has("MSTA_TRIES")) invalidconfig = 1; else
-					MSTA_TRIES = r2sconifg.getInt("MSTA_TRIES");
-				if(!r2sconifg.has("MyMicroserviceName")) invalidconfig = 1; else
-					MSTAUtils.MyMicroserviceName = r2sconifg.getString("MyMicroserviceName");
-				//System.out.println(MyMicroserviceName);
-				if(!r2sconifg.has("MyMicroserviceID")) invalidconfig = 1; else
-					MSTAUtils.MyMicroserviceID = r2sconifg.getString("MyMicroserviceID");
-				if(!r2sconifg.has("MyURI")) invalidconfig = 1; else
-					MSTAUtils.MyURI = r2sconifg.getString("MyURI");
-				if(!r2sconifg.has("MyPublic")) invalidconfig = 1; else
-				{
-			    	String graphpublic = r2sconifg.getString("MyPublic");
-			    	MSTAUtils.decodepublic = Base64.getDecoder().decode(graphpublic);		    
-					//MSTAUtils.MyPublic = r2sconifg.getString("MyPublic");
-				}
-				if(!r2sconifg.has("MicroserviceGraph")) invalidconfig = 1; else {
-				    JSONArray jsonms = r2sconifg.getJSONArray("MicroserviceGraph");
-				    KeyFactory kfinit = KeyFactory.getInstance("RSA");
-				    for (int i = 0; i < jsonms.length(); i++) { 
-				    	 JSONObject GraphObject = jsonms.getJSONObject(i);  
-				    	 String graphname = GraphObject.getString("GraphName");
-				    	 MSTAUtils.graphname_to_auth.put(graphname, GraphObject);
-
-				    	String graphpublic = GraphObject.getString("GraphPublic");
-					    byte[] decodepublic = Base64.getDecoder().decode(graphpublic);		    
-					    X509EncodedKeySpec ks3 =  new X509EncodedKeySpec(decodepublic);
-					    PublicKey graphKey = kfinit.generatePublic(ks3);
-					    MSTAUtils.graphname_to_public.put(graphname, graphKey);			    
-				    }
-				}
-				
-				// *****************************************************
-			    // REMOVE WHEN WE HAVE MST-Auth and Register
-				//
-				SecretKey secretKey = null;
-				if(!r2sconifg.has("MyHash")) invalidconfig = 1; else
-				{
-					String MyHash = r2sconifg.getString("MyHash");
-					byte[] decodesecret = Base64.getDecoder().decode(MyHash);		    
-				    secretKey = new SecretKeySpec(decodesecret, 0, decodesecret.length, "AES"); 
-				}
-				
-			    //byte[] decodepublic = Base64.getDecoder().decode(MSTAUtils.MyPublic);		    
-							
-			    InputStream stream2 = classLoader.getResourceAsStream("../privateKey.key");
-			    //System.out.println(stream2);
-				if (stream2 == null) {
-				    System.out.println("MST-Auth privateKey missing from WEB-INF folder");
-			    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
-				}
-				ObjectInputStream oin2 = new ObjectInputStream(stream2);
-			    byte[] loadedprivate = (byte[]) oin2.readObject();
-			    oin2.close();
-			    stream2.close();
-
-				// decrypt it
-			    Cipher encryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-			    encryptCipher.init(Cipher.DECRYPT_MODE, secretKey);
-			    MSTAUtils.decryptedprivate = encryptCipher.doFinal(loadedprivate);
-			    			    			    				
-				//
-				// all cached so create a UUID
-				// MyInstanceID "########-####-####-####-############" is not used from config, there as placeholder
-			    MSTAUtils.MyInstanceID = UUID.randomUUID().toString();
-				r2sconifg.put("MyInstanceID", MSTAUtils.MyInstanceID); // only here so System.out works below
-				//System.out.println("MyInstanceID" + MyInstanceID);
-				// something was missing, so through error
-				if (invalidconfig == 1 ) {
-				    System.out.println(MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": Information missing in MSTAConfiguration.json in WEB-INF folder");
-			    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": Information missing in MSTAConfiguration.json in WEB-INF folder"));		
-				}
-		    	//System.out.println(MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": WEB-INF");
-			    //System.out.println(r2sconifg.toString());
+				BuildMSTAUtils(r2sconifg, classLoader);				
 			}
-			else {
-				// ********************************************
-				// TO DO
-				// DO REGISTRATION WITH MST-Auth SErVER
-		    	String jsonstr = "";
-		    	
-		    	JSONObject jsonobj =  new JSONObject(jsonstr);
-			    
-			    //
-			    // save my info
-			    //
-				MSTA_CONNECTION_TIMEOUT = jsonobj.getInt("MSTA_CONNECTION_TIMEOUT");
-				MSTA_RESPONSE_TIMEOUT = jsonobj.getInt("MSTA_RESPONSE_TIMEOUT");
-				MSTA_TIMEOUT_WAIT = jsonobj.getInt("MSTA_TIMEOUT_WAIT");
-				MSTA_TRIES = jsonobj.getInt("MSTA_TRIES");
+			else if (MSTAUtils.MSTA_DO_INIT.equals("A") || MSTAUtils.MSTA_DO_INIT.equals("S")) {	
+				if(!r2sconifg.has("MSTA_CONNECTION_TIMEOUT")) throw(new Exception("Missing MSTA_CONNECTION_TIMEOUT")); 
+				MSTAUtils.MSTA_CONNECTION_TIMEOUT = r2sconifg.getInt("MSTA_CONNECTION_TIMEOUT");
+				if(!r2sconifg.has("MSTA_CONNECTION_URL")) throw(new Exception("Missing MSTA_CONNECTION_URL")); 
+				MSTAUtils.MSTA_CONNECTION_URL = r2sconifg.getString("MSTA_CONNECTION_URL");
+				if(!r2sconifg.has("MyMicroserviceID")) throw(new Exception("Missing MyMicroserviceID")); 
+				MSTAUtils.MyMicroserviceID = r2sconifg.getString("MyMicroserviceID");
+
+				AuthListen();
+				JSONObject newobj = new JSONObject();		
+				newobj.put("Type", "Handshake");
+				newobj.put("Record", MSTAUtils.MyMicroserviceID);		
+				String MyHash = MSTAUtils.mylistener.SendMsg(newobj.toString());
+				DecryptPrivate(MyHash, classLoader);
 				
-				MSTAUtils.MyMicroserviceName = jsonobj.getString("MyMicroserviceName");
-				MSTAUtils.MyMicroserviceID = jsonobj.getString("MyMicroserviceID");
-				MSTAUtils.MyInstanceID = jsonobj.getString("MyInstanceID");
-				MSTAUtils.MyURI = jsonobj.getString("MyURI");
-			    
-			    //
-			    // create the graphname_to_auth hash table
-			    //
-			    JSONArray  jsonms = jsonobj.getJSONArray("MicroserviceGraph");
-			    for (int i = 0; i < jsonms.length(); i++) { 
-			    	 JSONObject GraphObject = jsonms.getJSONObject(i);  
-			    	 String graphname = GraphObject.getString("GraphName");
-			    	 MSTAUtils.graphname_to_auth.put(graphname, GraphObject);
-			    }
-		    	//System.out.println(MyMicroserviceName+ " MST-Auth Server");
-			    //System.out.println(jsonobj.toString());
-			}
+				newobj = new JSONObject();		
+				newobj.put("Type", "Config");
+				newobj.put("Record", MSTAUtils.MyMicroserviceID);		
+				String rsp = MSTAUtils.mylistener.SendMsg(newobj.toString());				
+				JSONObject r2sconifg2 =  new JSONObject(rsp);
+				BuildMSTAUtils(r2sconifg2, classLoader);
+			}			
+			
 		} 
 		catch (Exception e) {
 			System.out.println(e.toString());
 		}	
 		
 	}
+	
+	public void DecryptPrivate(String hash, ClassLoader classLoader) {
+		try {
+			byte[] decodesecret = Base64.getDecoder().decode(hash);		    
+			SecretKey secretKey = new SecretKeySpec(decodesecret, 0, decodesecret.length, "AES"); 
+		    InputStream stream2 = classLoader.getResourceAsStream("../privateKey.key");
+		    //System.out.println(stream2);
+			if (stream2 == null) {
+			    System.out.println("MST-Auth privateKey missing from WEB-INF folder");
+		    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
+			}
+			ObjectInputStream oin2 = new ObjectInputStream(stream2);
+		    byte[] loadedprivate = (byte[]) oin2.readObject();
+		    oin2.close();
+		    stream2.close();
+	
+			// decrypt it
+		    Cipher encryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+		    encryptCipher.init(Cipher.DECRYPT_MODE, secretKey);
+		    MSTAUtils.decryptedprivate = encryptCipher.doFinal(loadedprivate);
+		} catch(Exception e) {
+			System.out.println(e.toString());
+		}
+		
+	}
+	
+	public void BuildMSTAUtils(JSONObject r2sconifg, ClassLoader classLoader) {
+		try {
+			if(!r2sconifg.has("MSTA_CONNECTION_TIMEOUT")) throw(new Exception("Missing MSTA_CONNECTION_TIMEOUT")); 
+			MSTAUtils.MSTA_CONNECTION_TIMEOUT = r2sconifg.getInt("MSTA_CONNECTION_TIMEOUT");
+			if(!r2sconifg.has("MSTA_RESPONSE_TIMEOUT")) throw(new Exception("Missing MSTA_RESPONSE_TIMEOUT")); 
+			MSTAUtils.MSTA_RESPONSE_TIMEOUT = r2sconifg.getInt("MSTA_RESPONSE_TIMEOUT");
+			if(!r2sconifg.has("MSTA_TIMEOUT_WAIT")) throw(new Exception("Missing MSTA_TIMEOUT_WAIT")); 
+			MSTAUtils.MSTA_TIMEOUT_WAIT = r2sconifg.getInt("MSTA_TIMEOUT_WAIT");
+			if(!r2sconifg.has("MSTA_TRIES")) throw(new Exception("Missing MSTA_TRIES")); 
+			MSTAUtils.MSTA_TRIES = r2sconifg.getInt("MSTA_TRIES");
+			if(!r2sconifg.has("MyMicroserviceName")) throw(new Exception("Missing MSTA_TRIES"));
+			MSTAUtils.MyMicroserviceName = r2sconifg.getString("MyMicroserviceName");
+			//System.out.println(MyMicroserviceName);
+			if(!r2sconifg.has("MyMicroserviceID")) throw(new Exception("Missing MyMicroserviceID"));
+			MSTAUtils.MyMicroserviceID = r2sconifg.getString("MyMicroserviceID");
+			if(!r2sconifg.has("MyURI")) throw(new Exception("Missing MyURI"));
+			MSTAUtils.MyURI = r2sconifg.getString("MyURI");
+			if(!r2sconifg.has("MyPublic")) throw(new Exception("Missing MyPublic"));			
+	    	String mypublic = r2sconifg.getString("MyPublic");
+	    	MSTAUtils.decodepublic = Base64.getDecoder().decode(mypublic);		    
+				
+			if(!r2sconifg.has("MicroserviceGraph")) throw(new Exception("MicroserviceGraph MyURI"));
+		    JSONArray jsonms = r2sconifg.getJSONArray("MicroserviceGraph");
+		    KeyFactory kfinit = KeyFactory.getInstance("RSA");
+		    for (int i = 0; i < jsonms.length(); i++) { 
+		    	 JSONObject GraphObject = jsonms.getJSONObject(i);  
+		    	 String graphname = GraphObject.getString("GraphName");
+		    	 MSTAUtils.graphname_to_auth.put(graphname, GraphObject);
 
-	public void AuthCallbackResponse(HttpResponse<String> mstresponse) {
-		System.out.println("AuthCallbackResponse");
+		    	String graphpublic2 = GraphObject.getString("GraphPublic");
+			    byte[] decodepublic = Base64.getDecoder().decode(graphpublic2);		    
+			    X509EncodedKeySpec ks3 =  new X509EncodedKeySpec(decodepublic);
+			    PublicKey graphKey = kfinit.generatePublic(ks3);
+			    MSTAUtils.graphname_to_public.put(graphname, graphKey);			    
+		    }
+			// *****************************************************
+		    // REMOVE WHEN WE HAVE MST-Auth and Register
+			//
+			SecretKey secretKey = null;
+			if(!r2sconifg.has("MyHash")) throw(new Exception("MicroserviceGraph MyHash"));
+			{
+				String MyHash = r2sconifg.getString("MyHash");
+				byte[] decodesecret = Base64.getDecoder().decode(MyHash);		    
+			    secretKey = new SecretKeySpec(decodesecret, 0, decodesecret.length, "AES"); 
+			}
+				
+		    InputStream stream2 = classLoader.getResourceAsStream("../privateKey.key");
+		    //System.out.println(stream2);
+			if (stream2 == null) {
+			    System.out.println("MST-Auth privateKey missing from WEB-INF folder");
+		    	throw(new NullPointerException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + ": MSTAConfiguration.json missing from WEB-INF folder"));		
+			}
+			ObjectInputStream oin2 = new ObjectInputStream(stream2);
+		    byte[] loadedprivate = (byte[]) oin2.readObject();
+		    oin2.close();
+		    stream2.close();
+
+			// decrypt it
+		    Cipher encryptCipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+		    encryptCipher.init(Cipher.DECRYPT_MODE, secretKey);
+		    MSTAUtils.decryptedprivate = encryptCipher.doFinal(loadedprivate);
+		    			    			    				
+			//
+			// all cached so create a UUID
+			// MyInstanceID "########-####-####-####-############" is not used from config, there as placeholder
+		    MSTAUtils.MyInstanceID = UUID.randomUUID().toString();
+			r2sconifg.put("MyInstanceID", MSTAUtils.MyInstanceID); // only here so System.out works below
+			
+		} catch (Exception e) {
+			System.out.println(e.toString());			
+		}
 	}
 
+	// asynch return HttpResponse
+	public void AuthCallbackResponse(HttpResponse<String> mstresponse) {
+		String resp = mstresponse.body().toString();
+		
+		System.out.println("AsynchAuthCallbackResponse: " + resp);
+	}
+	
+	// synch return String
+	public void AuthCallbackResponse(String resp) {
+		
+		System.out.println("AsynchAuthCallbackResponse: " + resp);
+	}
+
+	public void AuthIncomingText(String mstresponse) {
+		System.out.println("websocket receive: " + mstresponse);
+	}
+	
+	public void AuthListen() {
+		//System.out.println("Boo AuthListen URI " + MSTAUtils.MSTA_CONNECTION_URL);
+		
+		MSTAUtils.mylistener = new MST_Auth_BaseWebsocket(this);
+		  
+		try {
+			HttpClient mstclient2 = HttpClient.newHttpClient();
+			WebSocket mysocket;
+				mysocket = mstclient2.newWebSocketBuilder()
+						.connectTimeout(Duration.ofMillis(MSTAUtils.MSTA_CONNECTION_TIMEOUT))
+				        .buildAsync(new URI(MSTAUtils.MSTA_CONNECTION_URL), MSTAUtils.mylistener)
+				        .join();
+		} catch (Exception e) {
+			e.printStackTrace();	
+		}
+	}
 }

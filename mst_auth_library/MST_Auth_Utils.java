@@ -34,13 +34,16 @@ import org.json.JSONObject;
 
 public class MST_Auth_Utils {
 	public  String MSTA_DO_INIT;
-	public  String MSTA_REST_URL = null;
 	public  String MSTA_CONNECTION_URL = null;
 	public  String GraphUID = null;
 	public  String MyMicroserviceName = null;
 	public  String MyMicroserviceID = null;
 	public  String MyInstanceID = null;
 	public  String MyURI = null;
+	public int MSTA_CONNECTION_TIMEOUT = 100000;;
+	public int MSTA_RESPONSE_TIMEOUT = 100000;
+	public int MSTA_TIMEOUT_WAIT = 3000;
+	public int MSTA_TRIES =  3;	
 	
 	//the in memory hash map of all things MST-AUTH
 	public Semaphore listsemaphore;
@@ -56,6 +59,9 @@ public class MST_Auth_Utils {
 	//PKCS8EncodedKeySpec ks2 =  new PKCS8EncodedKeySpec(decryptedprivate);
     //KeyFactory kf2 = KeyFactory.getInstance("RSA");
     //PrivateKey privateKey = kf2.generatePrivate(ks2);
+	
+	// synch
+	MST_Auth_BaseWebsocket mylistener; 
 
 
 

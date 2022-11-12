@@ -81,8 +81,9 @@ public class MST_Auth_ClientServlet extends MST_Auth_Servlet {
 	
 	
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+	    //System.out.println("OY1 MST_Auth_ClientServlet : " + MSTAUtils);
 
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, this);
+		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, this);
 		wrapper.SetClient(GetService());
 		try {
 			wrapper.doGet(request, response);
@@ -96,7 +97,7 @@ public class MST_Auth_ClientServlet extends MST_Auth_Servlet {
 
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, this);
+		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, this);
 		wrapper.SetClient(GetService());
 		try {
 			wrapper.doPost(request, response);
@@ -109,7 +110,7 @@ public class MST_Auth_ClientServlet extends MST_Auth_Servlet {
 
 
 	protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, this);
+		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, this);
 		wrapper.SetClient(GetService());
 		try {
 			wrapper.doPut(request, response);
@@ -122,7 +123,7 @@ public class MST_Auth_ClientServlet extends MST_Auth_Servlet {
 
 
 	protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, this);
+		MST_Auth_ClientWrapper wrapper = new MST_Auth_ClientWrapper(MSTAUtils, this);
 		wrapper.SetClient(GetService());
 		try {
 			wrapper.doDelete(request, response);

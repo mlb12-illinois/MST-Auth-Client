@@ -7,10 +7,13 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.net.http.WebSocket;
+import java.net.http.WebSocket.Listener;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 
@@ -19,32 +22,22 @@ import org.json.JSONException;
 public class MST_Auth_SendThread implements  Runnable { 
 	protected Phaser phaser = null;
 	protected MST_Auth_Utils MSTAUtils;
-	protected int MSTA_CONNECTION_TIMEOUT = 10000;;
-	protected int MSTA_RESPONSE_TIMEOUT = 10000;
-	protected int MSTA_TIMEOUT_WAIT = 3000;
-	protected int MSTA_TRIES =  3;	
 	protected MST_Auth_BaseClientWrapper ServletReturn = null;
 	protected MST_Auth_Servlet AuthReturn = null;
 	HttpRequest.Builder mstauthbuilder = null;
 
-	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, HttpRequest.Builder parmmstauthbuilder, MST_Auth_BaseClientWrapper paramServletReturn, Phaser parmphaser)  {
+	// asynch send to other microservice
+	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, HttpRequest.Builder parmmstauthbuilder, MST_Auth_BaseClientWrapper paramServletReturn, Phaser parmphaser)  {
 		mstauthbuilder = parmmstauthbuilder;
 		phaser = parmphaser;
 		ServletReturn = paramServletReturn;
 		MSTAUtils = parmMSTAUtils;
-		MSTA_CONNECTION_TIMEOUT = parmMSTA_CONNECTION_TIMEOUT;;
-		MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
-		MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
-		MSTA_TRIES =  parmMSTA_TRIES;	
 	}
 	
-	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, HttpRequest.Builder parmmstauthbuilder, MST_Auth_Servlet parmAuthReturn)  {
+	// asynch send to MST-Auth
+	MST_Auth_SendThread(MST_Auth_Utils parmMSTAUtils, HttpRequest.Builder parmmstauthbuilder, MST_Auth_Servlet parmAuthReturn)  {
 		mstauthbuilder = parmmstauthbuilder;
 		MSTAUtils = parmMSTAUtils;
-		MSTA_CONNECTION_TIMEOUT = parmMSTA_CONNECTION_TIMEOUT;;
-		MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
-		MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
-		MSTA_TRIES =  parmMSTA_TRIES;	
 		AuthReturn = parmAuthReturn;
 	}
 	
@@ -54,11 +47,11 @@ public class MST_Auth_SendThread implements  Runnable {
 	  
 	  // config the client
 	  HttpClient mstclient = HttpClient.newBuilder()
-		      .connectTimeout(Duration.ofMillis(MSTA_CONNECTION_TIMEOUT))	// time out to connect
+		      .connectTimeout(Duration.ofMillis(MSTAUtils.MSTA_CONNECTION_TIMEOUT))	// time out to connect
 		      .build();
 
 	  // get ready for send
-	  int mytries = MSTA_TRIES;
+	  int mytries = MSTAUtils.MSTA_TRIES;
 	  int retcode = 200;
 	  String errorstring;
 	  errorstring = "";
@@ -68,6 +61,9 @@ public class MST_Auth_SendThread implements  Runnable {
 		  {
 			  try
 			  {
+				  // test sending to websocket
+				  // config the client
+				  
 				  // do the acutal send
 				  //System.out.println("Entering SendRequestA");
 				  //System.out.println("CLIENT SENDING");			  
@@ -85,7 +81,7 @@ public class MST_Auth_SendThread implements  Runnable {
 					  mytries--;
 					  if (mytries > 0) {
 						  try {
-							  TimeUnit.MILLISECONDS.sleep(MSTA_TIMEOUT_WAIT);	// add a little wait, to see if root will end
+							  TimeUnit.MILLISECONDS.sleep(MSTAUtils.MSTA_TIMEOUT_WAIT);	// add a little wait, to see if root will end
 						  }
 						  catch (JSONException | InterruptedException ie) {
 							  throw(new MSTAException (": InterruptedException" + ie));		
@@ -104,6 +100,7 @@ public class MST_Auth_SendThread implements  Runnable {
 					  if ( ServletReturn != null) ServletReturn.callbackResponse(mstresponse);
 					  if ( AuthReturn != null) AuthReturn.AuthCallbackResponse(mstresponse);
 					  //phaser.arriveAndDeregister();
+					  
 					  return;
 				  } 
 			  }
@@ -114,7 +111,7 @@ public class MST_Auth_SendThread implements  Runnable {
 				  mytries--;
 				  if (mytries > 0) {
 					  try {
-						  TimeUnit.MILLISECONDS.sleep(MSTA_TIMEOUT_WAIT);	// add a little wait, to see if root will end
+						  TimeUnit.MILLISECONDS.sleep(MSTAUtils.MSTA_TIMEOUT_WAIT);	// add a little wait, to see if root will end
 					  }
 					  catch (JSONException | InterruptedException ie) {
 						  errorstring = errorstring + "InterruptedException" + ie.toString() + ";";
@@ -122,8 +119,8 @@ public class MST_Auth_SendThread implements  Runnable {
 					  }
 				  }
 				  else {
-					  if ( ServletReturn != null) ServletReturn.callbackResponse(null );
-					  if ( AuthReturn != null) AuthReturn.AuthCallbackResponse(null );
+					  //if ( ServletReturn != null) ServletReturn.callbackResponse(null );
+					  //if ( AuthReturn != null) AuthReturn.AuthCallbackResponse(null);
 					  return;
 				  }
 			  }	   

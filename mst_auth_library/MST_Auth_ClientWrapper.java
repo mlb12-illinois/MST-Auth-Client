@@ -96,8 +96,8 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 	protected MST_Auth_Servlet AuthReturn = null; // this is the hook to the servlet to get to "all things data with MST-Auth"
 	
 
-	public MST_Auth_ClientWrapper(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES, MST_Auth_Servlet parmAuthReturn) {
-		super(parmMSTAUtils, parmMSTA_CONNECTION_TIMEOUT, parmMSTA_RESPONSE_TIMEOUT, parmMSTA_TIMEOUT_WAIT,  parmMSTA_TRIES);
+	public MST_Auth_ClientWrapper(MST_Auth_Utils parmMSTAUtils, MST_Auth_Servlet parmAuthReturn) {
+		super(parmMSTAUtils);
 		
 		AuthReturn = parmAuthReturn;	// this is the hook to the servlet to get to "all things data with MST-Auth"
 		
@@ -190,7 +190,7 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 		try {
 				mstauthbuilder 
 				.uri(new URI(MSTAUtils.GraphUID))
-				.timeout(Duration.ofMillis(MSTA_RESPONSE_TIMEOUT));
+				.timeout(Duration.ofMillis(MSTAUtils.MSTA_RESPONSE_TIMEOUT));
 		} 
 		catch (URISyntaxException e) {
 			e.printStackTrace();
@@ -738,21 +738,24 @@ public class MST_Auth_ClientWrapper extends MST_Auth_BaseClientWrapper{
 				SetMicroservice("MST_Auth");		
 				//System.out.println(MSTAUtils.GraphUID);
 				SetMethodWithBodyString("POST", logobject.toString());
-				SetHeader("Content-Type", "charset=UTF-8");
-				
+				SetHeader("Content-Type", "charset=UTF-8");				
 				BuildHeaders();
-			} catch (InvalidKeySpecException e) {
+			    if (mode.equals("ASYNCH")) {	// change back to ASYNCH
+			    	  MST_Auth_SendThread T1 = new MST_Auth_SendThread(MSTAUtils, mstauthbuilder, AuthReturn);
+			    	  Thread t = new Thread (T1, "SendThread");					  
+			          t.start();   	  
+			    }
+			    else if (mode.equals("ASYNCH2")) {
+					JSONObject newobj = new JSONObject();		
+					newobj.put("Type", "Log");
+					newobj.put("Record", logobject.toString());		
+					String rsp = MSTAUtils.mylistener.SendMsg(newobj.toString());
+			    	AuthReturn.AuthCallbackResponse(rsp);
+			    }
+			} catch (Exception e) {
 				e.printStackTrace();
 		    	throw(new MSTAException (MSTAUtils.MyMicroserviceName + ":" + MSTAUtils.MyMicroserviceID + ":" + MSTAUtils.MyInstanceID + e.toString()));		
 			} 
-	      if (mode.equals("ASYNCH")) {
-	    	  MST_Auth_SendThread T1 = new MST_Auth_SendThread(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, mstauthbuilder, AuthReturn);
-	    	  Thread t = new Thread (T1, "SendThread");					  
-	          t.start();   	  
-	      }
-	      else if (mode.equals("SYNCH")) {
-	    	  // $$$ add websocket stuff here
-	      }
 		}
 		finally {
 			authflag = 0;

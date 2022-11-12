@@ -48,10 +48,6 @@ import org.json.JSONException;
 public class MST_Auth_BaseServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	protected MST_Auth_Utils MSTAUtils = null;
-	protected int MSTA_CONNECTION_TIMEOUT = 100000;;
-	protected int MSTA_RESPONSE_TIMEOUT = 100000;
-	protected int MSTA_TIMEOUT_WAIT = 3000;
-	protected int MSTA_TRIES =  3;	
 
 	public void init(ServletConfig config) throws ServletException {
 		MSTAUtils = new MST_Auth_Utils();		
@@ -69,7 +65,7 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         //System.out.println(" MST_Auth_BaseServlet doGet ");
 		
-		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
+		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils);
 		wrapper.SetClient(GetService());
 		try {
 			wrapper.doGet(request, response);
@@ -81,7 +77,7 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 	}
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
-		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
+		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils);
 		wrapper.SetClient(GetService());
 		try {
 			wrapper.doPost(request, response);
@@ -93,7 +89,7 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 	}
 	protected void doPut(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
-		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
+		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils);
 		wrapper.SetClient(GetService());
 		try {
 			wrapper.doPut(request, response);
@@ -105,7 +101,7 @@ public class MST_Auth_BaseServlet extends HttpServlet {
 	}
 	protected void doDelete(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		
-		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES);
+		MST_Auth_BaseClientWrapper wrapper = new MST_Auth_BaseClientWrapper(MSTAUtils);
 		wrapper.SetClient(GetService());
 		try {
 			wrapper.doPut(request, response);

@@ -35,20 +35,12 @@ import org.json.JSONException;
 public class MST_Auth_BaseClientWrapper {
 	protected MST_Auth_Microservice MST_Client;
 	protected MST_Auth_Utils MSTAUtils;
-	protected int MSTA_CONNECTION_TIMEOUT;
-	protected int MSTA_RESPONSE_TIMEOUT;
-	protected int MSTA_TIMEOUT_WAIT;
-	protected int MSTA_TRIES;	
 	
 	protected Phaser phaser;
 	protected HttpRequest.Builder mstauthbuilder;
 
-	public MST_Auth_BaseClientWrapper(MST_Auth_Utils parmMSTAUtils, int parmMSTA_CONNECTION_TIMEOUT, int parmMSTA_RESPONSE_TIMEOUT, int parmMSTA_TIMEOUT_WAIT,  int parmMSTA_TRIES) {
+	public MST_Auth_BaseClientWrapper(MST_Auth_Utils parmMSTAUtils) {
 		MSTAUtils = parmMSTAUtils;
-		MSTA_CONNECTION_TIMEOUT = parmMSTA_CONNECTION_TIMEOUT;;
-		MSTA_RESPONSE_TIMEOUT = parmMSTA_RESPONSE_TIMEOUT;
-		MSTA_TIMEOUT_WAIT = parmMSTA_TIMEOUT_WAIT;
-		MSTA_TRIES =  parmMSTA_TRIES;		
 	}
 	
 	public void SetClient(MST_Auth_Microservice client) {
@@ -73,7 +65,7 @@ public class MST_Auth_BaseClientWrapper {
 		    mstauthbuilder = HttpRequest.newBuilder();
 			mstauthbuilder
 				.uri(new URI(microservicename))
-				.timeout(Duration.ofMillis(MSTA_RESPONSE_TIMEOUT));
+				.timeout(Duration.ofMillis(MSTAUtils.MSTA_RESPONSE_TIMEOUT));
 		} 
 		catch (Exception e) {
 			e.printStackTrace();
@@ -105,7 +97,7 @@ public class MST_Auth_BaseClientWrapper {
 	  if (phaser == null) phaser = new Phaser(1);
 	  phaser.register();	
 
-	  MST_Auth_SendThread T1 = new MST_Auth_SendThread(MSTAUtils, MSTA_CONNECTION_TIMEOUT, MSTA_RESPONSE_TIMEOUT, MSTA_TIMEOUT_WAIT, MSTA_TRIES, mstauthbuilder, this, phaser);
+	  MST_Auth_SendThread T1 = new MST_Auth_SendThread(MSTAUtils, mstauthbuilder, this, phaser);
 	  Thread t = new Thread (T1, "SendThread");					  
       t.start();
 	  mstauthbuilder = HttpRequest.newBuilder();
@@ -121,12 +113,12 @@ public class MST_Auth_BaseClientWrapper {
 	  
 	  // config the client
 	  HttpClient mstclient = HttpClient.newBuilder()
-		      .connectTimeout(Duration.ofMillis(MSTA_CONNECTION_TIMEOUT))	// time out to connect
+		      .connectTimeout(Duration.ofMillis(MSTAUtils.MSTA_CONNECTION_TIMEOUT))	// time out to connect
 		      .build();
 	  mstauthbuilder = HttpRequest.newBuilder();
 
 	  // get ready for send
-	  int mytries = MSTA_TRIES;
+	  int mytries = MSTAUtils.MSTA_TRIES;
 	  int retcode = 200;
 	  String errorstring;
 	  errorstring = "";
@@ -148,7 +140,7 @@ public class MST_Auth_BaseClientWrapper {
 				  mytries--;
 				  if (mytries > 0) {
 					  try {
-						  TimeUnit.MILLISECONDS.sleep(MSTA_TIMEOUT_WAIT);	// add a little wait, to see if root will end
+						  TimeUnit.MILLISECONDS.sleep(MSTAUtils.MSTA_TIMEOUT_WAIT);	// add a little wait, to see if root will end
 					  }
 					  catch (JSONException | InterruptedException ie) {
 						  throw(new MSTAException (": InterruptedException" + ie));		
@@ -169,7 +161,7 @@ public class MST_Auth_BaseClientWrapper {
 			  mytries--;
 			  if (mytries > 0) {
 				  try {
-					  TimeUnit.MILLISECONDS.sleep(MSTA_TIMEOUT_WAIT);	// add a little wait, to see if root will end
+					  TimeUnit.MILLISECONDS.sleep(MSTAUtils.MSTA_TIMEOUT_WAIT);	// add a little wait, to see if root will end
 				  }
 				  catch (JSONException | InterruptedException ie) {
 					  errorstring = errorstring + "InterruptedException" + ie.toString() + ";";
