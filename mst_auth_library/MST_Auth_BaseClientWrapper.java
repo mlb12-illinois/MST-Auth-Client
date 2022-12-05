@@ -109,13 +109,16 @@ public class MST_Auth_BaseClientWrapper {
 	}
 	
 	public HttpResponse<String> SendRequest() throws MSTAException {	
+	  //System.out.println("Base SendRequest1");
 	  HttpRequest mstrequest = mstauthbuilder.build();
+	  //System.out.println("Base SendRequest2");
 	  
 	  // config the client
 	  HttpClient mstclient = HttpClient.newBuilder()
 		      .connectTimeout(Duration.ofMillis(MSTAUtils.MSTA_CONNECTION_TIMEOUT))	// time out to connect
 		      .build();
 	  mstauthbuilder = HttpRequest.newBuilder();
+	  //System.out.println("Base SendRequest3");
 
 	  // get ready for send
 	  int mytries = MSTAUtils.MSTA_TRIES;
@@ -133,6 +136,7 @@ public class MST_Auth_BaseClientWrapper {
 			  HttpResponse<String> mstresponse = mstclient.send(mstrequest, BodyHandlers.ofString());
 			  //System.out.println("mstresponse");
 			  //System.out.println("CLIENT SENT");
+			  //System.out.println("Base SendRequest4");
 			  retcode = mstresponse.statusCode();
 			  if (retcode != 200 ) {
 				  errorstring = ( "Response: " + mstresponse.body() + "; retcode: " + retcode);

@@ -35,20 +35,23 @@ import org.json.JSONObject;
 public class MST_Auth_Utils {
 	public  String MSTA_DO_INIT;
 	public  String MSTA_CONNECTION_URL = null;
-	public  String GraphUID = null;
-	public  String MyMicroserviceName = null;
-	public  String MyMicroserviceID = null;
-	public  String MyInstanceID = null;
-	public  String MyURI = null;
-	public int MSTA_CONNECTION_TIMEOUT = 100000;;
+	public int MSTA_CONNECTION_TIMEOUT = 100000;
 	public int MSTA_RESPONSE_TIMEOUT = 100000;
 	public int MSTA_TIMEOUT_WAIT = 3000;
 	public int MSTA_TRIES =  3;	
+	
+	public  String microserviceName = null;
+	public  String microserviceId = null;
+	public  String instanceId = null;
+	//public  String MyURI = null;
+	public  String buildKey = null;
+	public  String deploymentKey = null;
 	
 	//the in memory hash map of all things MST-AUTH
 	public Semaphore listsemaphore;
 	public LinkedHashMap<String, JSONObject> graphname_to_auth = null;
 	public LinkedHashMap<String, PublicKey> graphname_to_public = null;
+	//public  String GraphUID = null;
 	
 	byte[] decodepublic;
     //X509EncodedKeySpec ks3 =  new X509EncodedKeySpec(decodepublic);
@@ -73,12 +76,12 @@ public class MST_Auth_Utils {
 	// to check if this type of communication is authorized
 	//
 	// *******************************************************************
-	public int CheckAuthorization(JSONObject GraphObject, String direction, String type,  String InboundMethod) {
+	static public int CheckAuthorization(JSONObject GraphObject, String direction, String type,  String InboundMethod) {
 	    //System.out.println("My name: " + MyMicroserviceName + " Graph Name: " + service + " type: " + type);
 		//JSONObject GraphObject = graphname_to_auth.get(service);
 	    //System.out.println(GraphObject.toString());
 		if (GraphObject == null) return 0;
-	    JSONArray GraphAuth = GraphObject.getJSONArray("GraphAuthorizations");
+	    JSONArray GraphAuth = GraphObject.getJSONArray("authorizations");
 	    int authorized = 0;
 	    // loop through graph
 	    for (int i = 0; i < GraphAuth.length(); i++) { 
